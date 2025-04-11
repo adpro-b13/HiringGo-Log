@@ -15,9 +15,9 @@ on:
       db_pass:
         description: "Database password"
         required: true
-  push:
-    branches:
-      - "**"
+#  push:
+#    branches:
+#      - "**"
 
 jobs:
   deploy:
