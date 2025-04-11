@@ -116,7 +116,7 @@ class LogServiceTest {
         Log verified = logService.verifyLog(saved.getId(), VerificationAction.ACCEPT);
         assertEquals(LogStatus.ACCEPTED, verified.getStatus());
     }
-    
+
     @Test
     void red_verifyLogShouldChangeStatusToRejected() {
         Log log = new Log("Log for Rejection", "Needs rejection", "Asistensi",
