@@ -107,4 +107,36 @@ class LogServiceTest {
         assertTrue(logs.stream().anyMatch(log -> log.getTitle().equals("Log 1")));
         assertTrue(logs.stream().anyMatch(log -> log.getTitle().equals("Log 2")));
     }
+
+    @Test
+    void green_verifyLogShouldChangeStatusToAccepted() {
+        Log log = new Log("Log for Verification", "To be verified", "Asistensi",
+                LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
+        Log saved = logService.createLog(log);
+        Log verified = logService.verifyLog(saved.getId(), VerificationAction.ACCEPT);
+        assertEquals(LogStatus.ACCEPTED, verified.getStatus());
+    }
+    
+    @Test
+    void red_verifyLogShouldChangeStatusToRejected() {
+        Log log = new Log("Log for Rejection", "Needs rejection", "Asistensi",
+                LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
+        Log saved = logService.createLog(log);
+        Log verified = logService.verifyLog(saved.getId(), VerificationAction.REJECT);
+        assertEquals(LogStatus.REJECTED, verified.getStatus());
+    }
+
+    @Test
+    void red_verifyLogShouldThrowWhenLogAlreadyVerified() {
+        Log log = new Log("Already Verified", "Should not verify again", "Asistensi",
+                LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
+        Log saved = logService.createLog(log);
+        // First verify as ACCEPTED.
+        logService.verifyLog(saved.getId(), VerificationAction.ACCEPT);
+        // Then, attempt a second verification should throw an exception.
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> logService.verifyLog(saved.getId(), VerificationAction.REJECT));
+        assertTrue(exception.getMessage().contains("Log sudah diverifikasi"));
+    }
+
 }
