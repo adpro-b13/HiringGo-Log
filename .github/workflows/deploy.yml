@@ -1,0 +1,60 @@
+name: Continuous Deployment (CD)
+
+on:
+  workflow_dispatch:
+    inputs:
+      host_dns:
+        description: "Public DNS or IP (e.g., DuckDNS)"
+        required: true
+      db_url:
+        description: "Database JDBC URL"
+        required: true
+      db_user:
+        description: "Database user"
+        required: true
+      db_pass:
+        description: "Database password"
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker image
+        run: docker build -t hiringgo-log .
+
+      - name: Save Docker image to tar
+        run: docker save hiringgo-log > hiringgo-log.tar
+
+      - name: Copy image to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ github.event.inputs.host_dns }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "hiringgo-log.tar"
+          target: "~/"
+
+      - name: SSH into EC2 and deploy container
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ github.event.inputs.host_dns }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            docker load < ~/hiringgo-log.tar
+            docker stop hiringgo || true
+            docker rm hiringgo || true
+            docker run -d --name hiringgo \
+              --add-host=host.docker.internal:host-gateway \
+              -e DB_URL="${{ github.event.inputs.db_url }}" \
+              -e DB_USER="${{ github.event.inputs.db_user }}" \
+              -e DB_PASS="${{ github.event.inputs.db_pass }}" \
+              -p 8080:8080 hiringgo-log
