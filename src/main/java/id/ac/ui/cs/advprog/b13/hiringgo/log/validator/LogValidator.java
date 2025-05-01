@@ -5,6 +5,9 @@ import id.ac.ui.cs.advprog.b13.hiringgo.log.model.Log;
 import java.time.Duration;
 import java.time.LocalDate;
 
+import org.springframework.stereotype.Component;
+
+@Component
 public class LogValidator {
 
     public void validate(Log log) {
