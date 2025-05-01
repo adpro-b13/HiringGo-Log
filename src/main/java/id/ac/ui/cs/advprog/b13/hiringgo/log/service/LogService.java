@@ -6,7 +6,9 @@ import id.ac.ui.cs.advprog.b13.hiringgo.log.repository.LogRepository;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.state.LogStateFactory;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.state.VerificationAction;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.validator.LogValidator;
+import org.springframework.stereotype.Service;
 
+@Service
 public class LogService {
 
     private final LogRepository logRepository;
