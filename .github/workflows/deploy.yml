@@ -66,8 +66,8 @@ jobs:
             # give Nginx a moment to pick up the new backend
             sleep 10
 
-            # health-check via reverse-proxy on port 80
-            if ! curl --silent --fail http://${{ github.event.inputs.host_dns }}/ ; then
+            # wait for Nginx + app to become available (max 15s)
+            if ! curl --silent --fail --max-time 30 http://${{ github.event.inputs.host_dns }}/; then
               echo "❌ Public-facing health check failed"
               docker logs hiringgo
               exit 1
