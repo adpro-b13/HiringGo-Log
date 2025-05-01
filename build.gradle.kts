@@ -32,6 +32,11 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-web")  // if you need REST API capabilities
+    implementation("org.springframework.boot:spring-boot-starter-logging") // for logging
+    implementation("org.postgresql:postgresql:42.5.0")
 }
 
 tasks.withType<Test> {
