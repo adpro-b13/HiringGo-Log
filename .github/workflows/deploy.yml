@@ -45,19 +45,32 @@ jobs:
           source: "hiringgo-log.tar"
           target: "~/"
 
-      - name: SSH into EC2 and deploy container
+      - name: SSH into EC2, deploy container, and check health via reverse-proxy
         uses: appleboy/ssh-action@master
         with:
           host: ${{ github.event.inputs.host_dns }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
+            # load & restart your container
             docker load < ~/hiringgo-log.tar
             docker stop hiringgo || true
-            docker rm hiringgo || true
+            docker rm hiringgo   || true
             docker run -d --name hiringgo \
               --add-host=host.docker.internal:host-gateway \
               -e DB_URL="${{ github.event.inputs.db_url }}" \
               -e DB_USER="${{ github.event.inputs.db_user }}" \
               -e DB_PASS="${{ github.event.inputs.db_pass }}" \
               -p 8080:8080 hiringgo-log
+
+            # give Nginx a moment to pick up the new backend
+            sleep 10
+
+            # health-check via reverse-proxy on port 80
+            if ! curl --silent --fail http://${{ github.event.inputs.host_dns }}/ ; then
+              echo "❌ Public-facing health check failed"
+              docker logs hiringgo
+              exit 1
+            fi
+
+            echo "✅ App is healthy behind proxy"
