@@ -27,6 +27,7 @@ public class Log {
         this.endTime = endTime;
         this.logDate = logDate;
         this.status = LogStatus.REPORTED;
+        this.id = 0L;
     }
 
     // Getters and setters
