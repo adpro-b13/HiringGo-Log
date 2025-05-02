@@ -13,7 +13,7 @@ class LogValidatorTest {
     private final LogValidator validator = new LogValidator();
 
     @Test
-    void red_validateShouldFailForBlankTitle() {
+    void unhappy_validateShouldFailForBlankTitle() {
         Log log = new Log("", "Description", "Asistensi",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
         LogValidationException exception = assertThrows(LogValidationException.class, () -> {
@@ -23,7 +23,7 @@ class LogValidatorTest {
     }
 
     @Test
-    void red_validateShouldFailWhenStartTimeNotBeforeEndTime() {
+    void unhappy_validateShouldFailWhenStartTimeNotBeforeEndTime() {
         LocalDateTime time = LocalDateTime.now();
         Log log = new Log("Test", "Description", "Asistensi",
                 time.plusHours(2), time.plusHours(1), LocalDate.now());
@@ -34,7 +34,7 @@ class LogValidatorTest {
     }
 
     @Test
-    void red_validateShouldFailForFutureLogDate() {
+    void unhappy_validateShouldFailForFutureLogDate() {
         Log log = new Log("Test", "Description", "Asistensi",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now().plusDays(1));
         LogValidationException exception = assertThrows(LogValidationException.class, () -> {
@@ -44,7 +44,7 @@ class LogValidatorTest {
     }
 
     @Test
-    void red_validateShouldFailForLongDuration() {
+    void unhappy_validateShouldFailForLongDuration() {
         Log log = new Log("Test", "Description", "Asistensi",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(13), LocalDate.now());
         LogValidationException exception = assertThrows(LogValidationException.class, () -> {
