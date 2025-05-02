@@ -2,7 +2,7 @@ package id.ac.ui.cs.advprog.b13.hiringgo.log.controller;
 
 import id.ac.ui.cs.advprog.b13.hiringgo.log.model.Log;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.state.VerificationAction;
-import id.ac.ui.cs.advprog.b13.hiringgo.log.service.LogService;
+import id.ac.ui.cs.advprog.b13.hiringgo.log.service.LogServiceImpl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,9 +13,9 @@ import java.util.List;
 @RequestMapping("/logs")
 public class LogController {
 
-    private final LogService logService;
+    private final LogServiceImpl logService;
 
-    public LogController(LogService logService) {
+    public LogController(LogServiceImpl logService) {
         this.logService = logService;
     }
 

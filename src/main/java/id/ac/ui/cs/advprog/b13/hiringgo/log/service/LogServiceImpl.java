@@ -9,12 +9,12 @@ import id.ac.ui.cs.advprog.b13.hiringgo.log.validator.LogValidator;
 import org.springframework.stereotype.Service;
 
 @Service
-public class LogService {
+public class LogServiceImpl {
 
     private final LogRepository logRepository;
     private final LogValidator logValidator;
 
-    public LogService(LogRepository logRepository, LogValidator logValidator) {
+    public LogServiceImpl(LogRepository logRepository, LogValidator logValidator) {
         this.logRepository = logRepository;
         this.logValidator = logValidator;
     }
@@ -27,10 +27,13 @@ public class LogService {
 
     // For Mahasiswa: Update log (only if status is REPORTED)
     public Log updateLog(Log log) {
-        if (log.getId() == null || logRepository.findById(log.getId()) == null) {
+
+        Long id = log.getId();
+        Log existing = logRepository.findById(log.getId());
+        boolean isNotExist = id == null || existing == null;
+        if (isNotExist) {
             throw new IllegalArgumentException("Log not found");
         }
-        Log existing = logRepository.findById(log.getId());
         if (existing.getStatus() != LogStatus.REPORTED) {
             throw new IllegalStateException("Log tidak dapat diubah karena statusnya " + existing.getStatus());
         }

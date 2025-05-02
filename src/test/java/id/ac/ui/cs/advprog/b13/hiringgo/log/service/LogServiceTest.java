@@ -2,141 +2,195 @@ package id.ac.ui.cs.advprog.b13.hiringgo.log.service;
 
 import id.ac.ui.cs.advprog.b13.hiringgo.log.model.Log;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.model.LogStatus;
-import id.ac.ui.cs.advprog.b13.hiringgo.log.repository.InMemoryLogRepository;
+import id.ac.ui.cs.advprog.b13.hiringgo.log.repository.LogRepository;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.state.VerificationAction;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.validator.LogValidationException;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.validator.LogValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class LogServiceTest {
 
-    private LogService logService;
-    private InMemoryLogRepository repository;
+    @InjectMocks
+    private LogServiceImpl logService;
+
+    @Mock
+    private LogRepository repository;
+
+    @Mock
     private LogValidator validator;
 
     @BeforeEach
     void setUp() {
-        repository = new InMemoryLogRepository();
-        validator = new LogValidator();
-        logService = new LogService(repository, validator);
+        MockitoAnnotations.openMocks(this);
     }
 
     @Test
-    void red_createLogShouldThrowWhenTitleIsBlank() {
+    void unhappy_createLogShouldThrowWhenTitleIsBlank() {
         Log log = new Log("", "Description", "Asistensi",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
+        doThrow(new LogValidationException("Judul log tidak boleh kosong.")).when(validator).validate(log);
+
         LogValidationException exception = assertThrows(LogValidationException.class,
                 () -> logService.createLog(log));
         assertEquals("Judul log tidak boleh kosong.", exception.getMessage());
+        verify(validator).validate(log);
+        verifyNoInteractions(repository);
     }
 
     @Test
-    void green_createLogShouldPersistValidLog() {
+    void happy_createLogShouldPersistValidLog() {
         Log log = new Log("Valid Log", "Proper log", "Asistensi",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
-        Log saved = logService.createLog(log);
-        assertNotNull(saved.getId());
-        assertEquals(LogStatus.REPORTED, saved.getStatus());
+        Log saved = new Log("Valid Log", "Proper log", "Asistensi",
+                log.getStartTime(), log.getEndTime(), log.getLogDate());
+        saved.setId(1L);
+        saved.setStatus(LogStatus.REPORTED);
+
+        doNothing().when(validator).validate(log);
+        when(repository.save(log)).thenReturn(saved);
+
+        Log result = logService.createLog(log);
+        assertNotNull(result.getId());
+        assertEquals(LogStatus.REPORTED, result.getStatus());
+        verify(validator).validate(log);
+        verify(repository).save(log);
     }
 
     @Test
-    void red_updateLogShouldNotAllowUpdateWhenStatusNotReported() {
-        Log log = new Log("Log to Update", "Will be verified", "Asistensi",
+    void unhappy_updateLogShouldNotAllowUpdateWhenStatusNotReported() {
+        Long id = 1L;
+        Log existing = new Log("Log to Update", "Will be verified", "Asistensi",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
-        Log saved = logService.createLog(log);
-        logService.verifyLog(saved.getId(), VerificationAction.ACCEPT); // now status is ACCEPTED
-        saved.setTitle("Updated Title");
-        assertThrows(IllegalStateException.class, () -> logService.updateLog(saved));
+        existing.setId(id);
+        existing.setStatus(LogStatus.ACCEPTED);
+
+        when(repository.findById(id)).thenReturn(existing);
+
+        Log toUpdate = new Log("Log to Update", "Will be verified", "Asistensi",
+                existing.getStartTime(), existing.getEndTime(), existing.getLogDate());
+        toUpdate.setId(id);
+
+        assertThrows(IllegalStateException.class, () -> logService.updateLog(toUpdate));
+        verify(repository).findById(id);
+        verifyNoMoreInteractions(repository);
     }
 
     @Test
-    void green_updateLogShouldSucceedWhenStatusReported() {
-        // Create a valid log (status is REPORTED by default).
-        Log log = new Log("Log to Update", "Initial description", "Asistensi",
+    void happy_updateLogShouldSucceedWhenStatusReported() {
+        Long id = 2L;
+        Log existing = new Log("Log to Update", "Initial description", "Asistensi",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
-        Log saved = logService.createLog(log);
+        existing.setId(id);
+        existing.setStatus(LogStatus.REPORTED);
 
-        // Modify some field on the log.
-        saved.setTitle("Updated Title");
-        saved.setDescription("Updated description");
+        when(repository.findById(id)).thenReturn(existing);
+        doNothing().when(validator).validate(existing);
+        when(repository.save(existing)).thenReturn(existing);
 
-        // Update should succeed because the status is still REPORTED.
-        Log updated = logService.updateLog(saved);
+        existing.setTitle("Updated Title");
+        existing.setDescription("Updated description");
+
+        Log updated = logService.updateLog(existing);
         assertEquals("Updated Title", updated.getTitle());
         assertEquals("Updated description", updated.getDescription());
         assertEquals(LogStatus.REPORTED, updated.getStatus());
+        verify(repository).findById(id);
+        verify(validator).validate(existing);
+        verify(repository).save(existing);
     }
 
     @Test
-    void green_deleteLogShouldRemoveLog() {
-        // Create a log that can be deleted.
-        Log log = new Log("Log to Delete", "Some description", "Asistensi",
+    void happy_deleteLogShouldRemoveLog() {
+        Long id = 3L;
+        Log existing = new Log("Log to Delete", "Some description", "Asistensi",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
-        Log saved = logService.createLog(log);
-        Long id = saved.getId();
-        assertNotNull(id);
+        existing.setId(id);
+        existing.setStatus(LogStatus.REPORTED);
 
-        // Delete the log.
+        when(repository.findById(id)).thenReturn(existing);
+        doNothing().when(repository).delete(existing);
+
         logService.deleteLog(id);
-
-        // Verify that the log is no longer present.
-        List<Log> logs = logService.getAllLogs();
-        assertTrue(logs.stream().noneMatch(l -> l.getId().equals(id)));
+        verify(repository).findById(id);
+        verify(repository).delete(existing);
     }
 
     @Test
-    void green_getAllLogsShouldReturnAllSavedLogs() {
+    void happy_getAllLogsShouldReturnAllSavedLogs() {
         Log log1 = new Log("Log 1", "Description 1", "Asistensi",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
         Log log2 = new Log("Log 2", "Description 2", "Responsi",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
+        log1.setId(1L);
+        log2.setId(2L);
 
-        logService.createLog(log1);
-        logService.createLog(log2);
+        when(repository.findAll()).thenReturn(List.of(log1, log2));
 
         List<Log> logs = logService.getAllLogs();
-
         assertEquals(2, logs.size());
         assertTrue(logs.stream().anyMatch(log -> log.getTitle().equals("Log 1")));
         assertTrue(logs.stream().anyMatch(log -> log.getTitle().equals("Log 2")));
+        verify(repository).findAll();
     }
 
     @Test
-    void green_verifyLogShouldChangeStatusToAccepted() {
-        Log log = new Log("Log for Verification", "To be verified", "Asistensi",
+    void happy_verifyLogShouldChangeStatusToAccepted() {
+        Long id = 4L;
+        Log existing = new Log("Log for Verification", "To be verified", "Asistensi",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
-        Log saved = logService.createLog(log);
-        Log verified = logService.verifyLog(saved.getId(), VerificationAction.ACCEPT);
+        existing.setId(id);
+        existing.setStatus(LogStatus.REPORTED);
+
+        when(repository.findById(id)).thenReturn(existing);
+        when(repository.save(existing)).thenAnswer(inv -> inv.getArgument(0));
+
+        Log verified = logService.verifyLog(id, VerificationAction.ACCEPT);
         assertEquals(LogStatus.ACCEPTED, verified.getStatus());
+        verify(repository).findById(id);
+        verify(repository).save(existing);
     }
 
     @Test
-    void red_verifyLogShouldChangeStatusToRejected() {
-        Log log = new Log("Log for Rejection", "Needs rejection", "Asistensi",
+    void unhappy_verifyLogShouldChangeStatusToRejected() {
+        Long id = 5L;
+        Log existing = new Log("Log for Rejection", "Needs rejection", "Asistensi",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
-        Log saved = logService.createLog(log);
-        Log verified = logService.verifyLog(saved.getId(), VerificationAction.REJECT);
-        assertEquals(LogStatus.REJECTED, verified.getStatus());
+        existing.setId(id);
+        existing.setStatus(LogStatus.REPORTED);
+
+        when(repository.findById(id)).thenReturn(existing);
+        when(repository.save(existing)).thenAnswer(inv -> inv.getArgument(0));
+
+        Log rejected = logService.verifyLog(id, VerificationAction.REJECT);
+        assertEquals(LogStatus.REJECTED, rejected.getStatus());
+        verify(repository).findById(id);
+        verify(repository).save(existing);
     }
 
     @Test
-    void red_verifyLogShouldThrowWhenLogAlreadyVerified() {
-        Log log = new Log("Already Verified", "Should not verify again", "Asistensi",
+    void unhappy_verifyLogShouldThrowWhenAlreadyVerified() {
+        Long id = 6L;
+        Log existing = new Log("Already Verified", "Should not verify again", "Asistensi",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
-        Log saved = logService.createLog(log);
-        // First verify as ACCEPTED.
-        logService.verifyLog(saved.getId(), VerificationAction.ACCEPT);
-        // Then, attempt a second verification should throw an exception.
+        existing.setId(id);
+        existing.setStatus(LogStatus.ACCEPTED);
+
+        when(repository.findById(id)).thenReturn(existing);
+
         IllegalStateException exception = assertThrows(IllegalStateException.class,
-                () -> logService.verifyLog(saved.getId(), VerificationAction.REJECT));
+                () -> logService.verifyLog(id, VerificationAction.REJECT));
         assertTrue(exception.getMessage().contains("Log sudah diverifikasi"));
+        verify(repository).findById(id);
     }
-
 }
