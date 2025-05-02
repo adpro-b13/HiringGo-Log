@@ -30,6 +30,9 @@ class LogServiceTest {
     @Mock
     private LogValidator validator;
 
+    @Mock 
+    private UserService userService;
+
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
@@ -202,5 +205,30 @@ class LogServiceTest {
                 () -> logService.verifyLog(id, VerificationAction.REJECT));
         assertTrue(exception.getMessage().contains("Log sudah diverifikasi"));
         verify(repository).findById(id);
+    }
+
+    @Test
+    void happy_getAllLogsOnlyReturnsMine() {
+        // 1) Arrange: two logs, one “mine” and one “theirs”
+        Log mine   = new Log("T1", "D1", "C", "VAC", now, later, today, "user‑123");
+        Log theirs = new Log("T2", "D2", "C", "VAC", now, later, today, "other‑456");
+        when(userService.getCurrentUserId()).thenReturn("user‑123");
+        when(repository.findAll()).thenReturn(List.of(mine, theirs));
+
+        // 2) Act
+        List<Log> result = service.getAllLogs();
+
+        // 3) Assert
+        assertEquals(1, result.size());
+        assertEquals("user‑123", result.get(0).getCreatedBy());
+        verify(userService).getCurrentUserId();
+        verify(repository).findAll();
+    }
+
+    @Test
+    void unhappy_getAllLogsForUnknownUserReturnsEmpty() {
+        when(userService.getCurrentUserId()).thenReturn("no‑one");
+        when(repository.findAll()).thenReturn(List.of());
+        assertTrue(service.getAllLogs().isEmpty());
     }
 }
