@@ -37,9 +37,9 @@ class LogServiceTest {
 
     @Test
     void unhappy_createLogShouldThrowWhenTitleIsBlank() {
-        Log log = new Log("", "Description", "Asistensi",
+        Log log = new Log("", "Description", "Asistensi", "VAC-2024-1",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
-        doThrow(new LogValidationException("Judul log tidak boleh kosong.")).when(validator).validate(log);
+        doThrow(new LogValidationException("Judul log tidak boleh kosong. ")).when(validator).validate(log);
 
         LogValidationException exception = assertThrows(LogValidationException.class,
                 () -> logService.createLog(log));
@@ -50,15 +50,11 @@ class LogServiceTest {
 
     @Test
     void happy_createLogShouldPersistValidLog() {
-        Log log = new Log("Valid Log", "Proper log", "Asistensi",
+        Log log = new Log("Valid Log", "Proper log", "Asistensi", "VAC-2024-1",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
-        Log saved = new Log("Valid Log", "Proper log", "Asistensi",
-                log.getStartTime(), log.getEndTime(), log.getLogDate());
-        saved.setId(1L);
-        saved.setStatus(LogStatus.REPORTED);
 
         doNothing().when(validator).validate(log);
-        when(repository.save(log)).thenReturn(saved);
+        when(repository.save(log)).thenReturn(log);
 
         Log result = logService.createLog(log);
         assertNotNull(result.getId());
@@ -68,16 +64,30 @@ class LogServiceTest {
     }
 
     @Test
+    void unhappy_createLogShouldThrowWhenVacancyIdIsNull() {
+        Log log = new Log("Valid Log", "Proper log", "Teaching Assistant", null,
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
+
+        doThrow(new LogValidationException("Id lowongan tidak boleh kosong.")).when(validator).validate(log);
+
+        LogValidationException exception = assertThrows(LogValidationException.class,
+                () -> logService.createLog(log));
+        assertEquals("Id lowongan tidak boleh kosong.", exception.getMessage());
+        verify(validator).validate(log);
+        verifyNoInteractions(repository);
+    }
+
+    @Test
     void unhappy_updateLogShouldNotAllowUpdateWhenStatusNotReported() {
         Long id = 1L;
-        Log existing = new Log("Log to Update", "Will be verified", "Asistensi",
+        Log existing = new Log("Log to Update", "Will be verified", "Asistensi", "VAC-2024-1",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
         existing.setId(id);
         existing.setStatus(LogStatus.ACCEPTED);
 
         when(repository.findById(id)).thenReturn(existing);
 
-        Log toUpdate = new Log("Log to Update", "Will be verified", "Asistensi",
+        Log toUpdate = new Log("Log to Update", "Will be verified", "Asistensi", "VAC-2024-1",
                 existing.getStartTime(), existing.getEndTime(), existing.getLogDate());
         toUpdate.setId(id);
 
@@ -89,7 +99,7 @@ class LogServiceTest {
     @Test
     void happy_updateLogShouldSucceedWhenStatusReported() {
         Long id = 2L;
-        Log existing = new Log("Log to Update", "Initial description", "Asistensi",
+        Log existing = new Log("Log to Update", "Initial description", "Asistensi", "VAC-2024-1",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
         existing.setId(id);
         existing.setStatus(LogStatus.REPORTED);
@@ -113,7 +123,7 @@ class LogServiceTest {
     @Test
     void happy_deleteLogShouldRemoveLog() {
         Long id = 3L;
-        Log existing = new Log("Log to Delete", "Some description", "Asistensi",
+        Log existing = new Log("Log to Delete", "Some description", "Asistensi", "VAC-2024-1",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
         existing.setId(id);
         existing.setStatus(LogStatus.REPORTED);
@@ -128,9 +138,9 @@ class LogServiceTest {
 
     @Test
     void happy_getAllLogsShouldReturnAllSavedLogs() {
-        Log log1 = new Log("Log 1", "Description 1", "Asistensi",
+        Log log1 = new Log("Log 1", "Description 1", "Asistensi", "VAC-2024-1",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
-        Log log2 = new Log("Log 2", "Description 2", "Responsi",
+        Log log2 = new Log("Log 2", "Description 2", "Responsi", "VAC-2024-1",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
         log1.setId(1L);
         log2.setId(2L);
@@ -147,7 +157,7 @@ class LogServiceTest {
     @Test
     void happy_verifyLogShouldChangeStatusToAccepted() {
         Long id = 4L;
-        Log existing = new Log("Log for Verification", "To be verified", "Asistensi",
+        Log existing = new Log("Log for Verification", "To be verified", "Asistensi", "VAC-2024-1",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
         existing.setId(id);
         existing.setStatus(LogStatus.REPORTED);
@@ -164,7 +174,7 @@ class LogServiceTest {
     @Test
     void unhappy_verifyLogShouldChangeStatusToRejected() {
         Long id = 5L;
-        Log existing = new Log("Log for Rejection", "Needs rejection", "Asistensi",
+        Log existing = new Log("Log for Rejection", "Needs rejection", "Asistensi", "VAC-2024-1",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
         existing.setId(id);
         existing.setStatus(LogStatus.REPORTED);
@@ -181,7 +191,7 @@ class LogServiceTest {
     @Test
     void unhappy_verifyLogShouldThrowWhenAlreadyVerified() {
         Long id = 6L;
-        Log existing = new Log("Already Verified", "Should not verify again", "Asistensi",
+        Log existing = new Log("Already Verified", "Should not verify again", "Asistensi", "VAC-2024-1",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
         existing.setId(id);
         existing.setStatus(LogStatus.ACCEPTED);
