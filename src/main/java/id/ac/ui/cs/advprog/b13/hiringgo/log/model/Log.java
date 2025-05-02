@@ -2,8 +2,11 @@ package id.ac.ui.cs.advprog.b13.hiringgo.log.model;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import jakarta.persistence.*;
 
 public class Log {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String title;
     private String description;
@@ -27,7 +30,6 @@ public class Log {
         this.endTime = endTime;
         this.logDate = logDate;
         this.status = LogStatus.REPORTED;
-        this.id = 0L;
     }
 
     // Getters and setters

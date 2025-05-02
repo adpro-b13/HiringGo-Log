@@ -57,7 +57,7 @@ class LogServiceTest {
         when(repository.save(log)).thenReturn(log);
 
         Log result = logService.createLog(log);
-        assertNotNull(result.getId());
+        
         assertEquals(LogStatus.REPORTED, result.getStatus());
         verify(validator).validate(log);
         verify(repository).save(log);

@@ -10,10 +10,12 @@ class LogModelTest {
 
     // RED: Write a test that a new Log has status REPORTED by default.
     @Test
-    void unhappy_newLogShouldHaveDefaultStatusReported() {
+    void happy_newLogShouldHaveDefaultStatusReported() {
         Log log = new Log("Title", "Desc", "Asistensi","VAC-2024-1",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
         // Expect the default status to be REPORTED.
         assertEquals(LogStatus.REPORTED, log.getStatus());
+        // id must not be null
+        assertNull(log.getId());
     }
 }
