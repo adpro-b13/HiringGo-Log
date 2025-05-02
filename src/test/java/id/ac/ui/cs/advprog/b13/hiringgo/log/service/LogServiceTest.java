@@ -140,24 +140,6 @@ class LogServiceTest {
     }
 
     @Test
-    void happy_getAllLogsShouldReturnAllSavedLogs() {
-        Log log1 = new Log("Log 1", "Description 1", "Asistensi", "VAC-2024-1",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
-        Log log2 = new Log("Log 2", "Description 2", "Responsi", "VAC-2024-1",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
-        log1.setId(1L);
-        log2.setId(2L);
-
-        when(repository.findAll()).thenReturn(List.of(log1, log2));
-
-        List<Log> logs = logService.getAllLogs();
-        assertEquals(2, logs.size());
-        assertTrue(logs.stream().anyMatch(log -> log.getTitle().equals("Log 1")));
-        assertTrue(logs.stream().anyMatch(log -> log.getTitle().equals("Log 2")));
-        verify(repository).findAll();
-    }
-
-    @Test
     void happy_verifyLogShouldChangeStatusToAccepted() {
         Long id = 4L;
         Log existing = new Log("Log for Verification", "To be verified", "Asistensi", "VAC-2024-1",
@@ -210,25 +192,25 @@ class LogServiceTest {
     @Test
     void happy_getAllLogsOnlyReturnsMine() {
         // 1) Arrange: two logs, one “mine” and one “theirs”
-        Log mine   = new Log("T1", "D1", "C", "VAC", now, later, today, "user‑123");
-        Log theirs = new Log("T2", "D2", "C", "VAC", now, later, today, "other‑456");
-        when(userService.getCurrentUserId()).thenReturn("user‑123");
+        Log mine   = new Log("T1", "D1", "C", "VAC", LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now(), "user-123");
+        Log theirs = new Log("T2", "D2", "C", "VAC", LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now(), "other-456");
+        when(userService.getCurrentStudentId()).thenReturn("user-123");
         when(repository.findAll()).thenReturn(List.of(mine, theirs));
 
         // 2) Act
-        List<Log> result = service.getAllLogs();
+        List<Log> result = logService.getAllLogs();
 
         // 3) Assert
         assertEquals(1, result.size());
-        assertEquals("user‑123", result.get(0).getCreatedBy());
-        verify(userService).getCurrentUserId();
+        assertEquals("user-123", result.get(0).getStudentId());
+        verify(userService).getCurrentStudentId();
         verify(repository).findAll();
     }
 
     @Test
     void unhappy_getAllLogsForUnknownUserReturnsEmpty() {
-        when(userService.getCurrentUserId()).thenReturn("no‑one");
+        when(userService.getCurrentStudentId()).thenReturn("no-one");
         when(repository.findAll()).thenReturn(List.of());
-        assertTrue(service.getAllLogs().isEmpty());
+        assertTrue(logService.getAllLogs().isEmpty());
     }
 }

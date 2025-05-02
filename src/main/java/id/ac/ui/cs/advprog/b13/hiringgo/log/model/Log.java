@@ -8,6 +8,7 @@ public class Log {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    private String studentId;
     private String title;
     private String description;
     private String category;
@@ -19,6 +20,18 @@ public class Log {
 
     // Constructors, getters, and setters
     public Log() {
+    }
+
+    public Log(String title, String description, String category, String vacancyId, LocalDateTime startTime, LocalDateTime endTime, LocalDate logDate, String studentId) {
+        this.title = title;
+        this.description = description;
+        this.category = category;
+        this.vacancyId = vacancyId;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.logDate = logDate;
+        this.studentId = studentId;
+        this.status = LogStatus.REPORTED;
     }
 
     public Log(String title, String description, String category, String vacancyId, LocalDateTime startTime, LocalDateTime endTime, LocalDate logDate) {
@@ -104,5 +117,12 @@ public class Log {
 
     public void setStatus(LogStatus status) {
         this.status = status;
+    }
+
+    public String getStudentId() {
+        return studentId;
+    }
+    public void setStudentId(String studentId) {
+        this.studentId = studentId;
     }
 }

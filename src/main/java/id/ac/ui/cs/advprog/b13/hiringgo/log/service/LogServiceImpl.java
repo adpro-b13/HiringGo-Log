@@ -6,6 +6,10 @@ import id.ac.ui.cs.advprog.b13.hiringgo.log.repository.LogRepository;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.state.LogStateFactory;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.state.VerificationAction;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.validator.LogValidator;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 
 @Service
@@ -13,10 +17,12 @@ public class LogServiceImpl {
 
     private final LogRepository logRepository;
     private final LogValidator logValidator;
+    private final UserService userService;
 
-    public LogServiceImpl(LogRepository logRepository, LogValidator logValidator) {
+    public LogServiceImpl(LogRepository logRepository, LogValidator logValidator, UserService userService) {
         this.logRepository = logRepository;
         this.logValidator = logValidator;
+        this.userService = userService;
     }
 
     // For Mahasiswa: Create log
@@ -68,8 +74,10 @@ public class LogServiceImpl {
         return logRepository.save(log);
     }
 
-    // Retrieve all logs
-    public java.util.List<Log> getAllLogs() {
-        return logRepository.findAll();
+    public List<Log> getAllLogs() {
+        String me = userService.getCurrentStudentId();
+        return logRepository.findAll().stream()
+                         .filter(log -> me.equals(log.getStudentId()))
+                         .collect(Collectors.toList());
     }
 }
