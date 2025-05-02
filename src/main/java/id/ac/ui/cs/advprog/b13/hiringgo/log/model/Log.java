@@ -8,6 +8,7 @@ public class Log {
     private String title;
     private String description;
     private String category;
+    private String vacancyId;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private LocalDate logDate;
@@ -17,10 +18,11 @@ public class Log {
     public Log() {
     }
 
-    public Log(String title, String description, String category, LocalDateTime startTime, LocalDateTime endTime, LocalDate logDate) {
+    public Log(String title, String description, String category, String vacancyId, LocalDateTime startTime, LocalDateTime endTime, LocalDate logDate) {
         this.title = title;
         this.description = description;
         this.category = category;
+        this.vacancyId = vacancyId;
         this.startTime = startTime;
         this.endTime = endTime;
         this.logDate = logDate;
@@ -59,6 +61,14 @@ public class Log {
 
     public void setCategory(String category) {
         this.category = category;
+    }
+    
+    public String getVacancyId() {
+        return vacancyId;
+    }
+
+    public void setVacancyId(String vacancyId) {
+        this.vacancyId = vacancyId;
     }
 
     public LocalDateTime getStartTime() {

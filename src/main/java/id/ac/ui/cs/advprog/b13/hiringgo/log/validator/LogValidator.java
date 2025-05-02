@@ -14,6 +14,10 @@ public class LogValidator {
         if (log.getTitle() == null || log.getTitle().trim().isEmpty()) {
             throw new LogValidationException("Judul log tidak boleh kosong.");
         }
+        if (log.getVacancyId() == null || log.getVacancyId().trim().isEmpty()) {
+            throw new LogValidationException("ID lowongan tidak boleh kosong.");
+        }
+
         if (log.getStartTime() == null || log.getEndTime() == null) {
             throw new LogValidationException("Waktu mulai dan selesai harus diisi.");
         }
@@ -28,6 +32,7 @@ public class LogValidator {
         if (durationInHours > 12) {
             throw new LogValidationException("Durasi log tidak boleh lebih dari 12 jam.");
         }
+        
         // Additional validations can be added here (e.g., category validation)
     }
 }
