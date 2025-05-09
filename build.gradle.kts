@@ -38,6 +38,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-logging") // for logging
     implementation("org.postgresql:postgresql:42.5.0")
     implementation("jakarta.persistence:jakarta.persistence-api:3.1.0")
+    testImplementation("com.h2database:h2") // Added H2 for testing
 }
 
 tasks.withType<Test> {

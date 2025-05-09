@@ -41,7 +41,7 @@ public class LogServiceImpl {
     public Log updateLog(Log log) {
         logger.info("Attempting to update log with ID: {}", log.getId());
         Long id = log.getId();
-        Log existing = logRepository.findById(log.getId());
+        Log existing = logRepository.findById(log.getId()).orElse(null);
         boolean isNotExist = id == null || existing == null;
         if (isNotExist) {
             logger.warn("Log not found for update with ID: {}", id);
@@ -60,7 +60,10 @@ public class LogServiceImpl {
     // For Mahasiswa: Delete log (only if status is REPORTED)
     public void deleteLog(Long id) {
         logger.info("Attempting to delete log with ID: {}", id);
-        Log log = logRepository.findById(id);
+        Log log = logRepository.findById(id).orElseThrow(() -> {
+            logger.warn("Log not found for verification with ID: {}", id);
+            return new IllegalArgumentException("Log not found");
+        });
         if (log == null) {
             logger.warn("Log not found for deletion with ID: {}", id);
             throw new IllegalArgumentException("Log not found");
@@ -76,7 +79,10 @@ public class LogServiceImpl {
     // For Dosen: Verify log (accept or reject)
     public Log verifyLog(Long id, VerificationAction action) {
         logger.info("Attempting to verify log with ID: {} with action: {}", id, action);
-        Log log = logRepository.findById(id);
+        Log log = logRepository.findById(id).orElseThrow(() -> {
+            logger.warn("Log not found for verification with ID: {}", id);
+            return new IllegalArgumentException("Log not found");
+        });
         if (log == null) {
             logger.warn("Log not found for verification with ID: {}", id);
             throw new IllegalArgumentException("Log not found");
