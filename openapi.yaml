@@ -92,7 +92,7 @@ components:
 
   responses:
     BadRequest:
-      description: Bad Request - The request was invalid.
+      description: Bad Request - Format data tidak valid.
       content:
         application/json:
           schema:
@@ -123,7 +123,7 @@ components:
 paths:
   /logs:
     get:
-      summary: List all logs for the current student
+      summary: List all logs for the current student and vacancy
       tags: [Logs]
       responses:
         '200':
