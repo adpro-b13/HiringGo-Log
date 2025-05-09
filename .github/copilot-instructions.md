@@ -14,7 +14,7 @@
 
 ### Test-Driven Development (TDD)**
 
-- Write tests first (RED), implement feature (GREEN), then refactor.
+- Always write tests first (RED) then implement feature (GREEN), refactoring is optional.
 - Always provide commit messages when changing something in codebase: `[RED]: <describe test>` / `[GREEN]: <implement feature>` / `[REFACTOR]: <describe cleanup>`.
 
 ### RESTful APIs**
