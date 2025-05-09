@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import jakarta.persistence.*;
 
+@Entity
+@Table(name = "logs")
 public class Log {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,7 +33,7 @@ public class Log {
         this.endTime = endTime;
         this.logDate = logDate;
         this.studentId = studentId;
-        this.status = LogStatus.REPORTED;
+        // Default status is set by field initializer
     }
 
     public Log(String title, String description, String category, String vacancyId, LocalDateTime startTime, LocalDateTime endTime, LocalDate logDate) {
@@ -42,7 +44,7 @@ public class Log {
         this.startTime = startTime;
         this.endTime = endTime;
         this.logDate = logDate;
-        this.status = LogStatus.REPORTED;
+        // Default status is set by field initializer
     }
 
     // Getters and setters
