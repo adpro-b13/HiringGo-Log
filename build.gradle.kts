@@ -40,6 +40,8 @@ dependencies {
     implementation("jakarta.persistence:jakarta.persistence-api:3.1.0")
     testImplementation("com.h2database:h2") // Added H2 for testing
     implementation("jakarta.validation:jakarta.validation-api:3.0.2")
+
+    implementation("com.h2database:h2")
 }
 
 tasks.withType<Test> {

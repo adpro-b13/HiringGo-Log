@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
-public class LogServiceImpl {
+public class LogServiceImpl implements LogService {
 
     private final LogRepository logRepository;
     private final LogValidator logValidator;
@@ -32,6 +32,7 @@ public class LogServiceImpl {
     public Log createLog(Log log) {
         logger.info("Attempting to create log for student: {}", log.getStudentId());
         logValidator.validate(log);
+        log.setStatus(LogStatus.REPORTED); // Ensure initial status
         Log savedLog = logRepository.save(log);
         logger.info("Log created with ID: {}", savedLog.getId());
         return savedLog;
@@ -52,7 +53,18 @@ public class LogServiceImpl {
             throw new IllegalStateException("Log tidak dapat diubah karena statusnya " + existing.getStatus());
         }
         logValidator.validate(log);
-        Log updatedLog = logRepository.save(log);
+        // Update fields from log to existingLog
+        existing.setTitle(log.getTitle());
+        existing.setDescription(log.getDescription());
+        existing.setCategory(log.getCategory());
+        existing.setVacancyId(log.getVacancyId());
+        existing.setStartTime(log.getStartTime());
+        existing.setEndTime(log.getEndTime());
+        existing.setLogDate(log.getLogDate());
+        // studentId should generally not be updated, or handled with care
+        // status is managed by verifyLog or other specific actions
+
+        Log updatedLog = logRepository.save(existing);
         logger.info("Log updated with ID: {}", updatedLog.getId());
         return updatedLog;
     }
@@ -99,6 +111,7 @@ public class LogServiceImpl {
         return verifiedLog;
     }
 
+    @Override
     public List<Log> getAllLogs() {
         String currentStudentId = userService.getCurrentStudentId();
         logger.info("Fetching all logs for student ID: {}", currentStudentId);

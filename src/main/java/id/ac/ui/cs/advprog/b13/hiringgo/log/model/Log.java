@@ -23,7 +23,7 @@ public class Log {
 
     @NotBlank(message = "Deskripsi log tidak boleh kosong.")
     @Size(max = 1000, message = "Deskripsi log tidak boleh lebih dari 1000 karakter.")
-    private String description; // Assuming description can be optional or empty
+    private String description; 
 
     @NotBlank(message = "Kategori tidak boleh kosong.")
     private String category;
