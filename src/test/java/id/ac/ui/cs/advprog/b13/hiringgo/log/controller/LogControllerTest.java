@@ -232,14 +232,17 @@ class LogControllerTest {
     }
 
     @Test
-    @DisplayName("DELETE /logs/{id} returns 204")
-    void deleteLog_returnsNoContent() throws Exception {
-        doNothing().when(logService).deleteLog(3L);
+    @DisplayName("DELETE /logs/{id} returns 200 with success message and log_id")
+    void deleteLog_returnsOkWithSuccessMessage() throws Exception {
+        Long logIdToDelete = 3L;
+        doNothing().when(logService).deleteLog(logIdToDelete);
 
-        mockMvc.perform(delete("/logs/3"))
-            .andExpect(status().isNoContent());
+        mockMvc.perform(delete("/logs/{id}", logIdToDelete))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.message").value("Log berhasil dihapus"))
+            .andExpect(jsonPath("$.log_id").value(logIdToDelete.toString()));
 
-        verify(logService).deleteLog(3L);
+        verify(logService).deleteLog(logIdToDelete);
     }
 
     @Test
