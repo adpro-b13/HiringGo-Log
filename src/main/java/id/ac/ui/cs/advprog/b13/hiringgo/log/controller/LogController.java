@@ -48,7 +48,7 @@ public class LogController {
     }
 
     // Endpoint for Mahasiswa to update a log
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<?> updateLog(@PathVariable Long id, @Valid @RequestBody Log log, BindingResult bindingResult) {
         logger.info("Received request to update log with ID: {}", id);
         if (bindingResult.hasErrors()) {

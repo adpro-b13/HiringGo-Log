@@ -42,29 +42,40 @@ public class LogServiceImpl implements LogService {
     public Log updateLog(Log log) {
         logger.info("Attempting to update log with ID: {}", log.getId());
         Long id = log.getId();
-        Log existing = logRepository.findById(log.getId()).orElse(null);
-        boolean isNotExist = id == null || existing == null;
-        if (isNotExist) {
+        Log existingLog = logRepository.findById(id).orElseThrow(() -> {
             logger.warn("Log not found for update with ID: {}", id);
-            throw new IllegalArgumentException("Log not found");
-        }
-        if (existing.getStatus() != LogStatus.REPORTED) {
-            logger.warn("Log with ID: {} cannot be updated due to status: {}", id, existing.getStatus());
-            throw new IllegalStateException("Log tidak dapat diubah karena statusnya " + existing.getStatus());
-        }
-        logValidator.validate(log);
-        // Update fields from log to existingLog
-        existing.setTitle(log.getTitle());
-        existing.setDescription(log.getDescription());
-        existing.setCategory(log.getCategory());
-        existing.setVacancyId(log.getVacancyId());
-        existing.setStartTime(log.getStartTime());
-        existing.setEndTime(log.getEndTime());
-        existing.setLogDate(log.getLogDate());
-        // studentId should generally not be updated, or handled with care
-        // status is managed by verifyLog or other specific actions
+            return new IllegalArgumentException("Log not found");
+        });
 
-        Log updatedLog = logRepository.save(existing);
+        if (existingLog.getStatus() != LogStatus.REPORTED) {
+            logger.warn("Log with ID: {} cannot be updated due to status: {}", id, existingLog.getStatus());
+            throw new IllegalStateException("Log tidak dapat diubah karena statusnya " + existingLog.getStatus());
+        }
+
+        // Ensure studentId and vacancyId are not changed by setting them from the existing log
+        // This makes them effectively immutable for the update operation.
+        log.setStudentId(existingLog.getStudentId());
+        log.setVacancyId(existingLog.getVacancyId());
+        // Also, ensure the status is not changed directly by the input, it's managed by verifyLog
+        log.setStatus(existingLog.getStatus());
+
+
+        logValidator.validate(log); // Validate after ensuring immutable fields are preserved
+
+        // Update mutable fields from log to existingLog
+        existingLog.setTitle(log.getTitle());
+        existingLog.setDescription(log.getDescription());
+        existingLog.setCategory(log.getCategory());
+        // vacancyId is set to existingLog's value above, so this effectively re-sets it to the same value if log.getVacancyId() was different.
+        // However, to be explicit about not changing it from input:
+        // existingLog.setVacancyId(existingLog.getVacancyId()); // This line is redundant due to log.setVacancyId(existingLog.getVacancyId()); above
+        existingLog.setStartTime(log.getStartTime());
+        existingLog.setEndTime(log.getEndTime());
+        existingLog.setLogDate(log.getLogDate());
+        // studentId is handled similarly to vacancyId.
+        // existingLog.setStudentId(existingLog.getStudentId()); // Redundant
+
+        Log updatedLog = logRepository.save(existingLog);
         logger.info("Log updated with ID: {}", updatedLog.getId());
         return updatedLog;
     }
