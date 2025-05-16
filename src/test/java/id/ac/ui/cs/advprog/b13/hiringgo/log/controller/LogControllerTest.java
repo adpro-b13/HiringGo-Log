@@ -20,9 +20,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -112,36 +110,71 @@ class LogControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /logs/{id} updates and returns the log")
+    @DisplayName("PATCH /logs/{id} updates and returns the log with preserved studentId and vacancyId")
     void updateLog_returnsOk() throws Exception {
-        Long logIdToUpdate = 5L;
-        LocalDateTime startTime = LocalDateTime.now();
-        Log requestBodyLog = new Log("New Title","New Desc","Updated Category","VAC-ID-456",
-                startTime, startTime.plusHours(2), LocalDate.now(), "student-abc");
-        // ID in requestBodyLog is not strictly necessary as controller sets it from path.
-        // requestBodyLog.setId(logIdToUpdate);
+        Long logIdToUpdate = validLog.getId(); // Assuming validLog is set up with ID 1L
+        String originalStudentId = validLog.getStudentId(); // e.g., "student123"
+        String originalVacancyId = validLog.getVacancyId(); // e.g., "vacancy-001"
+        LogStatus originalStatus = validLog.getStatus();   // e.g., REPORTED
 
-        Log serviceReturnedLog = new Log(requestBodyLog.getTitle(), requestBodyLog.getDescription(), requestBodyLog.getCategory(), requestBodyLog.getVacancyId(),
-                                 requestBodyLog.getStartTime(), requestBodyLog.getEndTime(), requestBodyLog.getLogDate(), requestBodyLog.getStudentId());
-        serviceReturnedLog.setId(logIdToUpdate); // Service returns log with ID.
-        serviceReturnedLog.setStatus(LogStatus.REPORTED);
+        LocalDateTime newStartTime = LocalDateTime.now().plusHours(5); // Ensure different time
+        LocalDate newLogDate = LocalDate.now().plusDays(2); // Ensure different date
 
-        // Mock the service to return the updated log when called with any Log object
-        // that has the correct ID (which the controller ensures by setting log.setId(id)).
-        when(logService.updateLog(argThat(log -> log.getId().equals(logIdToUpdate) &&
-                                             log.getTitle().equals("New Title")))) // Be more specific if needed
-            .thenReturn(serviceReturnedLog);
+        Log patchRequestBody = new Log();
+        patchRequestBody.setTitle("Updated Title via Patch");
+        patchRequestBody.setDescription("Updated log description for patch.");
+        patchRequestBody.setCategory("Freelance Updated");
+        patchRequestBody.setVacancyId("DIFFERENT-VACANCY-ID-IN-REQUEST"); // This should be ignored by service for update
+        patchRequestBody.setStartTime(newStartTime);
+        patchRequestBody.setEndTime(newStartTime.plusHours(2));
+        patchRequestBody.setLogDate(newLogDate);
+        patchRequestBody.setStudentId("DIFFERENT-STUDENT-ID-IN-REQUEST"); // This should be ignored by service for update
+        // Status of patchRequestBody will be LogStatus.REPORTED due to field initializer in Log class.
 
+        Log serviceReturnedLog = new Log();
+        serviceReturnedLog.setId(logIdToUpdate);
+        serviceReturnedLog.setTitle(patchRequestBody.getTitle());
+        serviceReturnedLog.setDescription(patchRequestBody.getDescription());
+        serviceReturnedLog.setCategory(patchRequestBody.getCategory());
+        serviceReturnedLog.setVacancyId(originalVacancyId); // Service preserves this
+        serviceReturnedLog.setStartTime(patchRequestBody.getStartTime());
+        serviceReturnedLog.setEndTime(patchRequestBody.getEndTime());
+        serviceReturnedLog.setLogDate(patchRequestBody.getLogDate());
+        serviceReturnedLog.setStudentId(originalStudentId); // Service preserves this
+        serviceReturnedLog.setStatus(originalStatus);       // Service preserves this
 
-        mockMvc.perform(put("/logs/{id}", logIdToUpdate)
+        // The controller passes the request body (with ID set from path) to the service.
+        // The Log object passed to the service will have status=REPORTED from the patchRequestBody.
+        when(logService.updateLog(argThat(logArg ->
+                logArg.getId().equals(logIdToUpdate) &&
+                logArg.getTitle().equals(patchRequestBody.getTitle()) &&
+                logArg.getStudentId().equals(patchRequestBody.getStudentId()) && // Matches "DIFFERENT-STUDENT-ID-IN-REQUEST"
+                logArg.getVacancyId().equals(patchRequestBody.getVacancyId()) && // Matches "DIFFERENT-VACANCY-ID-IN-REQUEST"
+                logArg.getStatus() == LogStatus.REPORTED // Corrected: Expect REPORTED status from request body
+        ))).thenReturn(serviceReturnedLog);
+
+        mockMvc.perform(patch("/logs/{id}", logIdToUpdate)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestBodyLog))) // Send log data without ID in body, or with matching ID
+                .content(objectMapper.writeValueAsString(patchRequestBody)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(logIdToUpdate))
-            .andExpect(jsonPath("$.title").value("New Title"))
-            .andExpect(jsonPath("$.studentId").value("student-abc"));
+            .andExpect(jsonPath("$.title").value(patchRequestBody.getTitle()))
+            .andExpect(jsonPath("$.studentId").value(originalStudentId)) // Expect original studentId
+            .andExpect(jsonPath("$.vacancyId").value(originalVacancyId)) // Expect original vacancyId
+            .andExpect(jsonPath("$.status").value(originalStatus.toString()))
+            .andExpect(jsonPath("$.description").value(patchRequestBody.getDescription()))
+            .andExpect(jsonPath("$.category").value(patchRequestBody.getCategory()))
+            .andExpect(jsonPath("$.startTime").value(objectMapper.writeValueAsString(patchRequestBody.getStartTime()).replace("\"", "")))
+            .andExpect(jsonPath("$.endTime").value(objectMapper.writeValueAsString(patchRequestBody.getEndTime()).replace("\"", "")))
+            .andExpect(jsonPath("$.logDate").value(objectMapper.writeValueAsString(patchRequestBody.getLogDate()).replace("\"", "")));
 
-        verify(logService).updateLog(any(Log.class));
+        verify(logService).updateLog(argThat(logArg ->
+                logArg.getId().equals(logIdToUpdate) &&
+                logArg.getTitle().equals(patchRequestBody.getTitle()) &&
+                logArg.getStudentId().equals(patchRequestBody.getStudentId()) && // Verify service received "DIFFERENT-STUDENT-ID"
+                logArg.getVacancyId().equals(patchRequestBody.getVacancyId()) &&   // Verify service received "DIFFERENT-VACANCY-ID"
+                logArg.getStatus() == LogStatus.REPORTED // Corrected: Verify status on input to service was REPORTED
+        ));
     }
 
     // @Test
@@ -154,7 +187,7 @@ class LogControllerTest {
     //     // The test should still fail on status/body if validation isn't working as expected.
     //     when(logService.updateLog(any(Log.class))).thenReturn(new Log()); // Return a dummy non-null Log
 
-    //     mockMvc.perform(put("/logs/{id}", validLog.getId()) 
+    //     mockMvc.perform(patch("/logs/{id}", validLog.getId()) 
     //                     .contentType(MediaType.APPLICATION_JSON)
     //                     .content(objectMapper.writeValueAsString(logWithEmptyTitle)))
     //             .andExpect(status().isBadRequest())
@@ -164,9 +197,10 @@ class LogControllerTest {
     @Test
     void whenUpdateLog_serviceThrowsLogValidationException_shouldReturnBadRequest() throws Exception {
         String exceptionMessage = "Service update validation failed";
+        // updatedLog from setUp has status=REPORTED. If this is sent in JSON, service receives it.
         when(logService.updateLog(any(Log.class))).thenThrow(new LogValidationException(exceptionMessage));
 
-        mockMvc.perform(put("/logs/{id}", updatedLog.getId())
+        mockMvc.perform(patch("/logs/{id}", updatedLog.getId()) // Changed to patch
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updatedLog)))
                 .andExpect(status().isBadRequest())
@@ -178,7 +212,7 @@ class LogControllerTest {
         String exceptionMessage = "Log not found for update";
         when(logService.updateLog(any(Log.class))).thenThrow(new IllegalArgumentException(exceptionMessage));
 
-        mockMvc.perform(put("/logs/{id}", updatedLog.getId())
+        mockMvc.perform(patch("/logs/{id}", updatedLog.getId()) // Changed to patch
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updatedLog)))
                 .andExpect(status().isBadRequest())
@@ -190,7 +224,7 @@ class LogControllerTest {
         String exceptionMessage = "Log cannot be updated in current state";
         when(logService.updateLog(any(Log.class))).thenThrow(new IllegalStateException(exceptionMessage));
 
-        mockMvc.perform(put("/logs/{id}", updatedLog.getId())
+        mockMvc.perform(patch("/logs/{id}", updatedLog.getId()) // Changed to patch
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updatedLog)))
                 .andExpect(status().isBadRequest())
