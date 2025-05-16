@@ -2,7 +2,7 @@ package id.ac.ui.cs.advprog.b13.hiringgo.log.controller;
 
 import id.ac.ui.cs.advprog.b13.hiringgo.log.model.Log;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.state.VerificationAction;
-import id.ac.ui.cs.advprog.b13.hiringgo.log.service.LogServiceImpl;
+import id.ac.ui.cs.advprog.b13.hiringgo.log.service.LogService;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.validator.LogValidationException;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -19,10 +19,10 @@ import java.util.stream.Collectors;
 @RequestMapping("/logs")
 public class LogController {
 
-    private final LogServiceImpl logService;
+    private final LogService logService;
     private static final Logger logger = LoggerFactory.getLogger(LogController.class);
 
-    public LogController(LogServiceImpl logService) {
+    public LogController(LogService logService) {
         this.logService = logService;
     }
 
