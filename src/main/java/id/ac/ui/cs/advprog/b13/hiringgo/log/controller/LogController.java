@@ -12,7 +12,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -74,11 +76,14 @@ public class LogController {
 
     // Endpoint for Mahasiswa to delete a log
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteLog(@PathVariable Long id) {
+    public ResponseEntity<Map<String, String>> deleteLog(@PathVariable Long id) {
         logger.info("Received request to delete log with ID: {}", id);
         logService.deleteLog(id);
         logger.info("Log deleted with ID: {}", id);
-        return ResponseEntity.noContent().build();
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Log berhasil dihapus");
+        response.put("log_id", id.toString());
+        return ResponseEntity.ok(response);
     }
 
     // Endpoint for Dosen to verify a log
