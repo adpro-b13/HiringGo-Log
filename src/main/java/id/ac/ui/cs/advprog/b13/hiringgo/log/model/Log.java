@@ -41,7 +41,7 @@ public class Log {
     private LocalDate logDate;
 
     @Enumerated(EnumType.STRING)
-    @NotNull
+    @NotNull(message = "Status tidak boleh kosong.") // Added message for consistency, though default helps
     private LogStatus status = LogStatus.REPORTED;
 
     // Constructors, getters, and setters
