@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -47,21 +49,22 @@ class LogServiceTest {
         doThrow(new LogValidationException("Judul log tidak boleh kosong.")).when(validator).validate(log);
 
         LogValidationException exception = assertThrows(LogValidationException.class,
-                () -> logService.createLog(log));
+                () -> logService.createLog(log)); // Validation is synchronous
         assertEquals("Judul log tidak boleh kosong.", exception.getMessage());
         verify(validator).validate(log);
         verifyNoInteractions(repository);
     }
 
     @Test
-    void happy_createLogShouldPersistValidLog() {
+    void happy_createLogShouldPersistValidLog() throws ExecutionException, InterruptedException {
         Log log = new Log("Valid Log", "Proper log", "Asistensi", "VAC-2024-1",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
 
         doNothing().when(validator).validate(log);
         when(repository.save(log)).thenReturn(log);
 
-        Log result = logService.createLog(log);
+        CompletableFuture<Log> futureResult = logService.createLog(log);
+        Log result = futureResult.join(); // or .get()
         
         assertEquals(LogStatus.REPORTED, result.getStatus());
         verify(validator).validate(log);
@@ -76,7 +79,7 @@ class LogServiceTest {
         doThrow(new LogValidationException("Id lowongan tidak boleh kosong.")).when(validator).validate(log);
 
         LogValidationException exception = assertThrows(LogValidationException.class,
-                () -> logService.createLog(log));
+                () -> logService.createLog(log)); // Validation is synchronous
         assertEquals("Id lowongan tidak boleh kosong.", exception.getMessage());
         verify(validator).validate(log);
         verifyNoInteractions(repository);
@@ -192,7 +195,7 @@ class LogServiceTest {
     }
 
     @Test
-    void happy_getAllLogsOnlyReturnsMine() {
+    void happy_getAllLogsOnlyReturnsMine() throws ExecutionException, InterruptedException {
         // 1) Arrange: two logs, one “mine” and one “theirs”
         Log mine   = new Log("T1", "D1", "C", "VAC", LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now(), "user-123");
         Log theirs = new Log("T2", "D2", "C", "VAC", LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now(), "other-456");
@@ -200,7 +203,8 @@ class LogServiceTest {
         when(repository.findAll()).thenReturn(List.of(mine, theirs));
 
         // 2) Act
-        List<Log> result = logService.getAllLogs();
+        CompletableFuture<List<Log>> futureResult = logService.getAllLogs();
+        List<Log> result = futureResult.join(); // or .get()
 
         // 3) Assert
         assertEquals(1, result.size());
@@ -210,10 +214,13 @@ class LogServiceTest {
     }
 
     @Test
-    void unhappy_getAllLogsForUnknownUserReturnsEmpty() {
+    void unhappy_getAllLogsForUnknownUserReturnsEmpty() throws ExecutionException, InterruptedException {
         when(userService.getCurrentStudentId()).thenReturn("no-one");
         when(repository.findAll()).thenReturn(List.of()); // Ensure repository returns empty if no logs for "no-one"
-        assertTrue(logService.getAllLogs().isEmpty());
+        
+        CompletableFuture<List<Log>> futureResult = logService.getAllLogs();
+        assertTrue(futureResult.join().isEmpty()); // or .get()
+        
         verify(userService).getCurrentStudentId();
         verify(repository).findAll(); // Verify findAll is called
     }

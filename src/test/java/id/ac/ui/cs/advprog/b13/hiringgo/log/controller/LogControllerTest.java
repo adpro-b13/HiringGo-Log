@@ -98,7 +98,7 @@ class LogControllerTest {
         savedLog.setId(10L);
         savedLog.setStatus(LogStatus.REPORTED);
 
-        when(logService.createLog(any(Log.class))).thenReturn(savedLog);
+        when(logService.createLog(any(Log.class))).thenReturn(java.util.concurrent.CompletableFuture.completedFuture(savedLog));
 
         mockMvc.perform(post("/logs")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -320,7 +320,7 @@ class LogControllerTest {
                 LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
         b.setId(2L);
 
-        when(logService.getAllLogs()).thenReturn(List.of(a,b));
+        when(logService.getAllLogs()).thenReturn(java.util.concurrent.CompletableFuture.completedFuture(List.of(a, b)));
 
         mockMvc.perform(get("/logs"))
             .andExpect(status().isOk())
@@ -331,7 +331,7 @@ class LogControllerTest {
 
     @Test
     void whenGetAllLogs_withNoLogs_shouldReturnEmptyList() throws Exception {
-        when(logService.getAllLogs()).thenReturn(Collections.emptyList());
+        when(logService.getAllLogs()).thenReturn(java.util.concurrent.CompletableFuture.completedFuture(Collections.emptyList()));
 
         mockMvc.perform(get("/logs"))
                 .andExpect(status().isOk())
