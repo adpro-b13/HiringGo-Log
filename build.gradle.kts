@@ -10,6 +10,7 @@ sonar {
   properties {
     property("sonar.projectKey", "my-microservice-1")
     property("sonar.projectName", "Log Service")
+    property("sonar.coverage.jacoco.xmlReportPaths", "${project.buildDir}/reports/jacoco/test/jacocoTestReport.xml")
   }
 }
 
@@ -66,5 +67,9 @@ tasks.test {
 }
 
 tasks.jacocoTestReport{
+    reports {
+        xml.required.set(true)
+        html.required.set(true) // Keep this if you use the HTML report
+    }
     dependsOn(tasks.test) // report is always generated after tests run
 }
