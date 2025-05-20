@@ -359,13 +359,13 @@ class LogControllerTest {
         MessageRequest messageRequest = new MessageRequest();
         messageRequest.setMessage("New test message");
 
-        Log updatedLog = new Log();
-        updatedLog.setId(logId);
-        updatedLog.setTitle("Original Title");
-        updatedLog.setStudentId("student123");
-        updatedLog.setMessages(new ArrayList<>(List.of(messageRequest.getMessage()))); // Ensure messages list is initialized
+        Log logWithMessageAdded = new Log();
+        logWithMessageAdded.setId(logId);
+        logWithMessageAdded.setTitle("Original Title");
+        logWithMessageAdded.setStudentId("student123");
+        logWithMessageAdded.setMessages(new ArrayList<>(List.of(messageRequest.getMessage()))); // Ensure messages list is initialized
 
-        when(logService.addMessageToLog(eq(logId), eq(messageRequest.getMessage()))).thenReturn(updatedLog);
+        when(logService.addMessageToLog(logId, messageRequest.getMessage())).thenReturn(logWithMessageAdded);
 
         mockMvc.perform(post("/logs/{id}/messages", logId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -401,7 +401,7 @@ class LogControllerTest {
         messageRequest.setMessage("Valid message");
         String errorMessage = "Log not found";
 
-        when(logService.addMessageToLog(eq(logId), eq(messageRequest.getMessage())))
+        when(logService.addMessageToLog(logId, messageRequest.getMessage()))
                 .thenThrow(new IllegalArgumentException(errorMessage));
 
         mockMvc.perform(post("/logs/{id}/messages", logId)
@@ -421,7 +421,7 @@ class LogControllerTest {
         messageRequest.setMessage("Another valid message");
         String errorMessage = "User not authorized";
 
-        when(logService.addMessageToLog(eq(logId), eq(messageRequest.getMessage())))
+        when(logService.addMessageToLog(logId, messageRequest.getMessage()))
                 .thenThrow(new IllegalStateException(errorMessage));
 
         mockMvc.perform(post("/logs/{id}/messages", logId)

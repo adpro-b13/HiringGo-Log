@@ -6,6 +6,9 @@ import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Set;
 
@@ -37,34 +40,14 @@ class MessageRequestTest {
         assertTrue(violations.isEmpty(), "There should be no violations for a valid message.");
     }
 
-    @Test
-    void testMessageNotBlank_whenNull() {
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"  ", "\t", "\n"})
+    void testMessageNotBlank_whenInvalid(String invalidMessage) {
         MessageRequest request = new MessageRequest();
-        request.setMessage(null);
+        request.setMessage(invalidMessage);
         Set<ConstraintViolation<MessageRequest>> violations = validator.validate(request);
-        assertFalse(violations.isEmpty(), "There should be a violation for a null message.");
-        ConstraintViolation<MessageRequest> violation = violations.iterator().next();
-        assertEquals("Message cannot be blank", violation.getMessage());
-        assertEquals("message", violation.getPropertyPath().toString());
-    }
-
-    @Test
-    void testMessageNotBlank_whenEmpty() {
-        MessageRequest request = new MessageRequest();
-        request.setMessage("");
-        Set<ConstraintViolation<MessageRequest>> violations = validator.validate(request);
-        assertFalse(violations.isEmpty(), "There should be a violation for an empty message.");
-        ConstraintViolation<MessageRequest> violation = violations.iterator().next();
-        assertEquals("Message cannot be blank", violation.getMessage());
-        assertEquals("message", violation.getPropertyPath().toString());
-    }
-
-    @Test
-    void testMessageNotBlank_whenBlank() {
-        MessageRequest request = new MessageRequest();
-        request.setMessage("   "); // Consists only of whitespace
-        Set<ConstraintViolation<MessageRequest>> violations = validator.validate(request);
-        assertFalse(violations.isEmpty(), "There should be a violation for a blank message.");
+        assertFalse(violations.isEmpty(), "There should be a violation for an invalid message: '" + invalidMessage + "'");
         ConstraintViolation<MessageRequest> violation = violations.iterator().next();
         assertEquals("Message cannot be blank", violation.getMessage());
         assertEquals("message", violation.getPropertyPath().toString());
