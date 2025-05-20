@@ -12,4 +12,5 @@ public interface LogService {
     Log verifyLog(Long id, VerificationAction action);
     List<Log> getAllLogs();
     Log addMessageToLog(Long logId, String message); // Added method
+    List<String> getMessagesForLog(Long logId); // New method
 }

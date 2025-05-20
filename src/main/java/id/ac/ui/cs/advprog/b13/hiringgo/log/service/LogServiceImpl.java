@@ -7,6 +7,7 @@ import id.ac.ui.cs.advprog.b13.hiringgo.log.state.LogStateFactory;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.state.VerificationAction;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.validator.LogValidator;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -153,5 +154,25 @@ public class LogServiceImpl implements LogService {
         Log updatedLog = logRepository.save(log);
         logger.info("Message added to log with ID: {}. Total messages: {}", updatedLog.getId(), updatedLog.getMessages().size());
         return updatedLog;
+    }
+
+    @Override
+    public List<String> getMessagesForLog(Long logId) {
+        logger.info("Attempting to fetch messages for log with ID: {}", logId);
+        Log log = logRepository.findById(logId).orElseThrow(() -> {
+            logger.warn("Log not found for fetching messages with ID: {}", logId);
+            return new IllegalArgumentException("Log not found");
+        });
+
+        String currentStudentId = userService.getCurrentStudentId();
+        // For now, only the owner can see messages. This could be expanded later for other roles (e.g., Dosen).
+        if (!log.getStudentId().equals(currentStudentId)) {
+            logger.warn("User {} attempted to fetch messages for log {} owned by {}. Access denied.",
+                        currentStudentId, logId, log.getStudentId());
+            throw new IllegalStateException("User not authorized to view messages for this log.");
+        }
+
+        logger.info("Successfully fetched {} messages for log ID: {}", log.getMessages().size(), logId);
+        return new ArrayList<>(log.getMessages()); // Return a copy
     }
 }

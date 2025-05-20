@@ -141,5 +141,24 @@ public class LogController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    // Endpoint to get all messages for a specific log
+    @GetMapping("/{id}/messages")
+    public ResponseEntity<?> getMessagesForLog(@PathVariable Long id) {
+        logger.info("Received request to get messages for log with ID: {}", id);
+        try {
+            List<String> messages = logService.getMessagesForLog(id);
+            logger.info("Successfully retrieved {} messages for log ID: {}", messages.size(), id);
+            return ResponseEntity.ok(messages);
+        } catch (IllegalArgumentException e) { // Log not found
+            logger.warn("Log not found when trying to get messages for log ID {}: {}", id, e.getMessage());
+            return ResponseEntity.notFound().build(); // 404 Not Found
+        } catch (IllegalStateException e) { // Unauthorized
+            logger.warn("Unauthorized attempt to get messages for log ID {}: {}", id, e.getMessage());
+            // Consider 403 Forbidden, but for consistency with other IllegalStateExceptions here, using 400.
+            // A custom exception handler could map this specific IllegalStateException to 403.
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }
 
