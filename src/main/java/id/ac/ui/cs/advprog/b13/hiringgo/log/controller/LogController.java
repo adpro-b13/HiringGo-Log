@@ -40,7 +40,7 @@ public class LogController {
             return ResponseEntity.badRequest().body(errors);
         }
         try {
-            Log saved = logService.createLog(log);
+            Log saved = logService.createLog(log).join(); // Await the async result
             logger.info("Log created with ID: {}", saved.getId());
             return ResponseEntity.created(URI.create("/logs/" + saved.getId())).body(saved);
         } catch (LogValidationException e) {
@@ -62,7 +62,7 @@ public class LogController {
         }
         log.setId(id);
         try {
-            Log updatedLog = logService.updateLog(log);
+            Log updatedLog = logService.updateLog(log); // Removed .join()
             logger.info("Log updated with ID: {}", updatedLog.getId());
             return ResponseEntity.ok(updatedLog);
         } catch (LogValidationException e) {
@@ -99,7 +99,7 @@ public class LogController {
             return ResponseEntity.badRequest().body("Invalid action value. Must be ACCEPT or REJECT.");
         }
         try {
-            Log verifiedLog = logService.verifyLog(id, verificationAction);
+            Log verifiedLog = logService.verifyLog(id, verificationAction); // Removed .join()
             logger.info("Log verified with ID: {}, new status: {}", verifiedLog.getId(), verifiedLog.getStatus());
             return ResponseEntity.ok(verifiedLog);
         } catch (IllegalArgumentException | IllegalStateException e) {
@@ -112,7 +112,7 @@ public class LogController {
     @GetMapping
     public ResponseEntity<List<Log>> getAllLogs() {
         logger.info("Received request to get all logs");
-        List<Log> logs = logService.getAllLogs();
+        List<Log> logs = logService.getAllLogs().join();
         logger.info("Returning {} logs", logs.size());
         return ResponseEntity.ok(logs);
     }
@@ -132,7 +132,7 @@ public class LogController {
         }
 
         try {
-            Log updatedLog = logService.addMessageToLog(id, messageRequest.getMessage());
+            Log updatedLog = logService.addMessageToLog(id, messageRequest.getMessage()); // Removed .join()
             logger.info("Message successfully added to log ID: {}. Returning updated log.", updatedLog.getId());
             return ResponseEntity.ok(updatedLog);
         } catch (IllegalArgumentException | IllegalStateException e) {

@@ -9,10 +9,12 @@ import id.ac.ui.cs.advprog.b13.hiringgo.log.validator.LogValidator;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -30,16 +32,21 @@ public class LogServiceImpl implements LogService {
     }
 
     // For Mahasiswa: Create log
-    public Log createLog(Log log) {
+    @Async
+    @Override
+    public CompletableFuture<Log> createLog(Log log) {
         logger.info("Attempting to create log for student: {}", log.getStudentId());
-        logValidator.validate(log);
-        log.setStatus(LogStatus.REPORTED); // Ensure initial status
-        Log savedLog = logRepository.save(log);
-        logger.info("Log created with ID: {}", savedLog.getId());
-        return savedLog;
+        logValidator.validate(log); // Synchronous validation before async task
+        return CompletableFuture.supplyAsync(() -> {
+            log.setStatus(LogStatus.REPORTED); // Ensure initial status
+            Log savedLog = logRepository.save(log);
+            logger.info("Log created with ID: {}", savedLog.getId());
+            return savedLog;
+        });
     }
 
     // For Mahasiswa: Update log (only if status is REPORTED)
+    @Override
     public Log updateLog(Log log) {
         logger.info("Attempting to update log with ID: {}", log.getId());
         Long id = log.getId();
@@ -82,6 +89,7 @@ public class LogServiceImpl implements LogService {
     }
 
     // For Mahasiswa: Delete log (only if status is REPORTED)
+    @Override
     public void deleteLog(Long id) {
         logger.info("Attempting to delete log with ID: {}", id);
         Log log = logRepository.findById(id).orElseThrow(() -> {
@@ -101,6 +109,7 @@ public class LogServiceImpl implements LogService {
     }
 
     // For Dosen: Verify log (accept or reject)
+    @Override
     public Log verifyLog(Long id, VerificationAction action) {
         logger.info("Attempting to verify log with ID: {} with action: {}", id, action);
         Log log = logRepository.findById(id).orElseThrow(() -> {
@@ -123,15 +132,18 @@ public class LogServiceImpl implements LogService {
         return verifiedLog;
     }
 
+    @Async
     @Override
-    public List<Log> getAllLogs() {
-        String currentStudentId = userService.getCurrentStudentId();
-        logger.info("Fetching all logs for student ID: {}", currentStudentId);
-        List<Log> logs = logRepository.findAll().stream()
-                         .filter(log -> currentStudentId.equals(log.getStudentId()))
-                         .collect(Collectors.toList());
-        logger.info("Found {} logs for student ID: {}", logs.size(), currentStudentId);
-        return logs;
+    public CompletableFuture<List<Log>> getAllLogs() {
+        return CompletableFuture.supplyAsync(() -> {
+            String currentStudentId = userService.getCurrentStudentId();
+            logger.info("Fetching all logs for student ID: {}", currentStudentId);
+            List<Log> logs = logRepository.findAll().stream()
+                    .filter(logObject -> currentStudentId.equals(logObject.getStudentId()))
+                    .collect(Collectors.toList());
+            logger.info("Found {} logs for student ID: {}", logs.size(), currentStudentId);
+            return logs;
+        });
     }
 
     @Override
