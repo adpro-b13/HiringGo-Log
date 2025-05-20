@@ -31,12 +31,12 @@ public class LogController {
 
     // Endpoint for Mahasiswa to create a log
     @PostMapping
-    public ResponseEntity<?> createLog(@Valid @RequestBody Log log, BindingResult bindingResult) {
+    public ResponseEntity<Object> createLog(@Valid @RequestBody Log log, BindingResult bindingResult) {
         logger.info("Received request to create log: {}", log.getTitle());
         if (bindingResult.hasErrors()) {
             List<String> errors = bindingResult.getAllErrors().stream()
                                                .map(e -> e.getDefaultMessage())
-                                               .collect(Collectors.toList());
+                                               .toList();
             logger.warn("Validation errors when creating log: {}", errors);
             return ResponseEntity.badRequest().body(errors);
         }
@@ -52,12 +52,12 @@ public class LogController {
 
     // Endpoint for Mahasiswa to update a log
     @PatchMapping("/{id}")
-    public ResponseEntity<?> updateLog(@PathVariable Long id, @Valid @RequestBody Log log, BindingResult bindingResult) {
+    public ResponseEntity<Object> updateLog(@PathVariable Long id, @Valid @RequestBody Log log, BindingResult bindingResult) {
         logger.info("Received request to update log with ID: {}", id);
         if (bindingResult.hasErrors()) {
             List<String> errors = bindingResult.getAllErrors().stream()
                                                .map(e -> e.getDefaultMessage())
-                                               .collect(Collectors.toList());
+                                               .toList();
             logger.warn("Validation errors when updating log ID {}: {}", id, errors);
             return ResponseEntity.badRequest().body(errors);
         }
@@ -89,7 +89,7 @@ public class LogController {
 
     // Endpoint for Dosen to verify a log
     @PostMapping("/{id}/verify")
-    public ResponseEntity<?> verifyLog(@PathVariable Long id,
+    public ResponseEntity<Object> verifyLog(@PathVariable Long id,
                                          @RequestParam String action) {
         logger.info("Received request to verify log with ID: {} with action: {}", id, action);
         VerificationAction verificationAction;
@@ -120,14 +120,14 @@ public class LogController {
 
     // Endpoint for Mahasiswa to add a message to a log
     @PostMapping("/{id}/messages")
-    public ResponseEntity<?> addMessageToLog(@PathVariable Long id,
+    public ResponseEntity<Object> addMessageToLog(@PathVariable Long id,
                                              @Valid @RequestBody MessageRequest messageRequest,
                                              BindingResult bindingResult) {
         logger.info("Received request to add message to log with ID: {}", id);
         if (bindingResult.hasErrors()) {
             List<String> errors = bindingResult.getAllErrors().stream()
                                                .map(e -> e.getDefaultMessage())
-                                               .collect(Collectors.toList());
+                                               .toList();
             logger.warn("Validation errors when adding message to log ID {}: {}", id, errors);
             return ResponseEntity.badRequest().body(errors);
         }
@@ -144,7 +144,7 @@ public class LogController {
 
     // Endpoint to get all messages for a specific log
     @GetMapping("/{id}/messages")
-    public ResponseEntity<?> getMessagesForLog(@PathVariable Long id) {
+    public ResponseEntity<Object> getMessagesForLog(@PathVariable Long id) {
         logger.info("Received request to get messages for log with ID: {}", id);
         try {
             List<String> messages = logService.getMessagesForLog(id);
