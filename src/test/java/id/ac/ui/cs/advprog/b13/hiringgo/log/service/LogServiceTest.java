@@ -14,6 +14,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -211,7 +212,66 @@ class LogServiceTest {
     @Test
     void unhappy_getAllLogsForUnknownUserReturnsEmpty() {
         when(userService.getCurrentStudentId()).thenReturn("no-one");
-        when(repository.findAll()).thenReturn(List.of());
+        when(repository.findAll()).thenReturn(List.of()); // Ensure repository returns empty if no logs for "no-one"
         assertTrue(logService.getAllLogs().isEmpty());
+        verify(userService).getCurrentStudentId();
+        verify(repository).findAll(); // Verify findAll is called
+    }
+
+    @Test
+    void happy_addMessageToLogShouldSucceedForOwner() {
+        Long logId = 1L;
+        String studentId = "user-123";
+        String messageContent = "This is a new message.";
+        Log existingLog = new Log("Test Log", "Desc", "Cat", "VAC-1", LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), studentId);
+        existingLog.setId(logId);
+        existingLog.setMessages(new ArrayList<>()); // Initialize messages list
+
+        when(userService.getCurrentStudentId()).thenReturn(studentId);
+        when(repository.findById(logId)).thenReturn(Optional.of(existingLog));
+        when(repository.save(any(Log.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Log updatedLog = logService.addMessageToLog(logId, messageContent);
+
+        assertNotNull(updatedLog);
+        assertEquals(1, updatedLog.getMessages().size());
+        assertEquals(messageContent, updatedLog.getMessages().get(0));
+        verify(userService).getCurrentStudentId();
+        verify(repository).findById(logId);
+        verify(repository).save(existingLog);
+    }
+
+    @Test
+    void unhappy_addMessageToLogShouldThrowWhenLogNotFound() {
+        Long logId = 2L;
+        String messageContent = "This message won't be added.";
+        when(repository.findById(logId)).thenReturn(Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> logService.addMessageToLog(logId, messageContent));
+        assertEquals("Log not found", exception.getMessage());
+        verify(repository).findById(logId);
+        verifyNoMoreInteractions(repository);
+        verifyNoInteractions(userService);
+    }
+
+    @Test
+    void unhappy_addMessageToLogShouldThrowWhenUserNotOwner() {
+        Long logId = 3L;
+        String ownerStudentId = "owner-456";
+        String requesterStudentId = "requester-789";
+        String messageContent = "Unauthorized message attempt.";
+        Log existingLog = new Log("Another Log", "Desc", "Cat", "VAC-2", LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), ownerStudentId);
+        existingLog.setId(logId);
+
+        when(userService.getCurrentStudentId()).thenReturn(requesterStudentId);
+        when(repository.findById(logId)).thenReturn(Optional.of(existingLog));
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> logService.addMessageToLog(logId, messageContent));
+        assertEquals("User not authorized to add message to this log.", exception.getMessage());
+        verify(userService).getCurrentStudentId();
+        verify(repository).findById(logId);
+        verifyNoMoreInteractions(repository);
     }
 }

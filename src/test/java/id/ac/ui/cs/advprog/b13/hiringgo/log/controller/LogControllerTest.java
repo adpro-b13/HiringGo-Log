@@ -1,6 +1,8 @@
 package id.ac.ui.cs.advprog.b13.hiringgo.log.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import id.ac.ui.cs.advprog.b13.hiringgo.log.dto.MessageRequest;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.model.Log;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.model.LogStatus;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.state.VerificationAction;
@@ -17,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -333,24 +336,8 @@ class LogControllerTest {
         mockMvc.perform(get("/logs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.size()").value(0));
+        verify(logService).getAllLogs();
     }
-
-//    @Test
-//    void whenCreateLog_withInvalidData_shouldReturnBadRequest() throws Exception {
-//        // 'invalidLog' is set up in @BeforeEach to be invalid (e.g., missing title)
-//        // Assumes Log model has validation annotations (e.g., @NotBlank on title)
-//
-//        // Stub to prevent NPE if validation doesn't trigger and service is called.
-//        // This doesn't mean the test will pass; it ensures the controller doesn't NPE.
-//        // The test should still fail on status/body if validation isn't working as expected.
-//        when(logService.createLog(any(Log.class))).thenReturn(new Log()); // Return a dummy non-null Log
-//
-//        mockMvc.perform(post("/logs")
-//                        .contentType(MediaType.APPLICATION_JSON)
-//                        .content(objectMapper.writeValueAsString(invalidLog)))
-//                .andExpect(status().isBadRequest())
-//                .andExpect(jsonPath("$").isArray()); // Expecting a list of error messages
-//    }
 
     @Test
     void whenCreateLog_serviceThrowsLogValidationException_shouldReturnBadRequest() throws Exception {
@@ -363,5 +350,86 @@ class LogControllerTest {
                         .content(objectMapper.writeValueAsString(validLog)))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(exceptionMessage));
+    }
+
+    @Test
+    @DisplayName("POST /logs/{id}/messages adds a message and returns updated log")
+    void addMessageToLog_returnsOkWithUpdatedLog() throws Exception {
+        Long logId = 1L;
+        MessageRequest messageRequest = new MessageRequest();
+        messageRequest.setMessage("New test message");
+
+        Log updatedLog = new Log();
+        updatedLog.setId(logId);
+        updatedLog.setTitle("Original Title");
+        updatedLog.setStudentId("student123");
+        updatedLog.setMessages(new ArrayList<>(List.of(messageRequest.getMessage()))); // Ensure messages list is initialized
+
+        when(logService.addMessageToLog(eq(logId), eq(messageRequest.getMessage()))).thenReturn(updatedLog);
+
+        mockMvc.perform(post("/logs/{id}/messages", logId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(messageRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(logId))
+                .andExpect(jsonPath("$.messages[0]").value(messageRequest.getMessage()));
+
+        verify(logService).addMessageToLog(logId, messageRequest.getMessage());
+    }
+
+    @Test
+    @DisplayName("POST /logs/{id}/messages with blank message returns 400 Bad Request")
+    void addMessageToLog_whenMessageBlank_returnsBadRequest() throws Exception {
+        Long logId = 1L;
+        MessageRequest messageRequest = new MessageRequest();
+        messageRequest.setMessage(" "); // Blank message
+
+        mockMvc.perform(post("/logs/{id}/messages", logId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(messageRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$[0]").value("Message cannot be blank")); // Assuming @NotBlank message
+
+        verifyNoInteractions(logService);
+    }
+
+    @Test
+    @DisplayName("POST /logs/{id}/messages when service throws IllegalArgumentException returns 400 Bad Request")
+    void addMessageToLog_whenServiceThrowsIllegalArgument_returnsBadRequest() throws Exception {
+        Long logId = 1L;
+        MessageRequest messageRequest = new MessageRequest();
+        messageRequest.setMessage("Valid message");
+        String errorMessage = "Log not found";
+
+        when(logService.addMessageToLog(eq(logId), eq(messageRequest.getMessage())))
+                .thenThrow(new IllegalArgumentException(errorMessage));
+
+        mockMvc.perform(post("/logs/{id}/messages", logId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(messageRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(errorMessage));
+
+        verify(logService).addMessageToLog(logId, messageRequest.getMessage());
+    }
+
+    @Test
+    @DisplayName("POST /logs/{id}/messages when service throws IllegalStateException returns 400 Bad Request")
+    void addMessageToLog_whenServiceThrowsIllegalState_returnsBadRequest() throws Exception {
+        Long logId = 1L;
+        MessageRequest messageRequest = new MessageRequest();
+        messageRequest.setMessage("Another valid message");
+        String errorMessage = "User not authorized";
+
+        when(logService.addMessageToLog(eq(logId), eq(messageRequest.getMessage())))
+                .thenThrow(new IllegalStateException(errorMessage));
+
+        mockMvc.perform(post("/logs/{id}/messages", logId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(messageRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(errorMessage));
+
+        verify(logService).addMessageToLog(logId, messageRequest.getMessage());
     }
 }
