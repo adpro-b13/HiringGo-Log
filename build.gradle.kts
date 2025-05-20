@@ -8,8 +8,8 @@ plugins {
 
 sonar {
   properties {
-    property("sonar.projectKey", "my-microservice-1")
-    property("sonar.projectName", "Log Service")
+    property("sonar.projectKey", "HiringGo-B13-Log-Service")
+    property("sonar.projectName", "HiringGo B13 Log Service")
     property("sonar.coverage.jacoco.xmlReportPaths", "${project.buildDir}/reports/jacoco/test/jacocoTestReport.xml")
   }
 }
