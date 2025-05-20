@@ -56,7 +56,7 @@ class LogServiceTest {
     }
 
     @Test
-    void happy_createLogShouldPersistValidLog() throws ExecutionException, InterruptedException {
+    void happy_createLogShouldPersistValidLog() {
         Log log = new Log("Valid Log", "Proper log", "Asistensi", "VAC-2024-1",
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
 
@@ -195,7 +195,7 @@ class LogServiceTest {
     }
 
     @Test
-    void happy_getAllLogsOnlyReturnsMine() throws ExecutionException, InterruptedException {
+    void happy_getAllLogsOnlyReturnsMine() {
         // 1) Arrange: two logs, one “mine” and one “theirs”
         Log mine   = new Log("T1", "D1", "C", "VAC", LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now(), "user-123");
         Log theirs = new Log("T2", "D2", "C", "VAC", LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now(), "other-456");
@@ -214,7 +214,7 @@ class LogServiceTest {
     }
 
     @Test
-    void unhappy_getAllLogsForUnknownUserReturnsEmpty() throws ExecutionException, InterruptedException {
+    void unhappy_getAllLogsForUnknownUserReturnsEmpty() {
         when(userService.getCurrentStudentId()).thenReturn("no-one");
         when(repository.findAll()).thenReturn(List.of()); // Ensure repository returns empty if no logs for "no-one"
         
