@@ -4,6 +4,7 @@ import id.ac.ui.cs.advprog.b13.hiringgo.log.model.Log;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.state.VerificationAction;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.service.LogService;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.validator.LogValidationException;
+import id.ac.ui.cs.advprog.b13.hiringgo.log.dto.MessageRequest; // Added import
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
@@ -115,6 +116,30 @@ public class LogController {
         List<Log> logs = logService.getAllLogs();
         logger.info("Returning {} logs", logs.size());
         return ResponseEntity.ok(logs);
+    }
+
+    // Endpoint for Mahasiswa to add a message to a log
+    @PostMapping("/{id}/messages")
+    public ResponseEntity<?> addMessageToLog(@PathVariable Long id,
+                                             @Valid @RequestBody MessageRequest messageRequest,
+                                             BindingResult bindingResult) {
+        logger.info("Received request to add message to log with ID: {}", id);
+        if (bindingResult.hasErrors()) {
+            List<String> errors = bindingResult.getAllErrors().stream()
+                                               .map(e -> e.getDefaultMessage())
+                                               .collect(Collectors.toList());
+            logger.warn("Validation errors when adding message to log ID {}: {}", id, errors);
+            return ResponseEntity.badRequest().body(errors);
+        }
+
+        try {
+            Log updatedLog = logService.addMessageToLog(id, messageRequest.getMessage());
+            logger.info("Message successfully added to log ID: {}. Returning updated log.", updatedLog.getId());
+            return ResponseEntity.ok(updatedLog);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            logger.warn("Error adding message to log ID {}: {}", id, e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }
 

@@ -3,6 +3,8 @@ package id.ac.ui.cs.advprog.b13.hiringgo.log.model;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "logs")
@@ -29,6 +31,11 @@ public class Log {
 
     @Enumerated(EnumType.STRING)
     private LogStatus status = LogStatus.REPORTED;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "log_messages", joinColumns = @JoinColumn(name = "log_id"))
+    @Column(name = "message")
+    private List<String> messages = new ArrayList<>();
 
     // Constructors, getters, and setters
     public Log() {
@@ -135,7 +142,16 @@ public class Log {
     public String getStudentId() {
         return studentId;
     }
+
     public void setStudentId(String studentId) {
         this.studentId = studentId;
+    }
+
+    public List<String> getMessages() {
+        return messages;
+    }
+
+    public void setMessages(List<String> messages) {
+        this.messages = messages;
     }
 }

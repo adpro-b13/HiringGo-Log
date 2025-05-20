@@ -132,4 +132,26 @@ public class LogServiceImpl implements LogService {
         logger.info("Found {} logs for student ID: {}", logs.size(), currentStudentId);
         return logs;
     }
+
+    @Override
+    public Log addMessageToLog(Long logId, String messageContent) {
+        logger.info("Attempting to add message to log with ID: {}", logId);
+
+        Log log = logRepository.findById(logId).orElseThrow(() -> {
+            logger.warn("Log not found for adding message with ID: {}", logId);
+            return new IllegalArgumentException("Log not found");
+        });
+
+        String currentStudentId = userService.getCurrentStudentId();
+        if (!log.getStudentId().equals(currentStudentId)) {
+            logger.warn("User {} attempted to add message to log {} owned by {}. Access denied.",
+                        currentStudentId, logId, log.getStudentId());
+            throw new IllegalStateException("User not authorized to add message to this log.");
+        }
+
+        log.getMessages().add(messageContent);
+        Log updatedLog = logRepository.save(log);
+        logger.info("Message added to log with ID: {}. Total messages: {}", updatedLog.getId(), updatedLog.getMessages().size());
+        return updatedLog;
+    }
 }

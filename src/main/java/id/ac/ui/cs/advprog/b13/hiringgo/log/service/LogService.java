@@ -11,4 +11,5 @@ public interface LogService {
     void deleteLog(Long id);
     Log verifyLog(Long id, VerificationAction action);
     List<Log> getAllLogs();
+    Log addMessageToLog(Long logId, String message); // Added method
 }
