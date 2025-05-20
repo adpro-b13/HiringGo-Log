@@ -274,4 +274,75 @@ class LogServiceTest {
         verify(repository).findById(logId);
         verifyNoMoreInteractions(repository);
     }
+
+    @Test
+    void happy_getMessagesForLogShouldReturnMessagesForOwner() {
+        Long logId = 1L;
+        String studentId = "user-123";
+        List<String> messages = List.of("Message 1", "Message 2");
+        Log existingLog = new Log("Test Log", "Desc", "Cat", "VAC-1", LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), studentId);
+        existingLog.setId(logId);
+        existingLog.setMessages(new ArrayList<>(messages));
+
+        when(userService.getCurrentStudentId()).thenReturn(studentId);
+        when(repository.findById(logId)).thenReturn(Optional.of(existingLog));
+
+        List<String> retrievedMessages = logService.getMessagesForLog(logId);
+
+        assertNotNull(retrievedMessages);
+        assertEquals(2, retrievedMessages.size());
+        assertTrue(retrievedMessages.containsAll(messages));
+        verify(userService).getCurrentStudentId();
+        verify(repository).findById(logId);
+    }
+
+    @Test
+    void unhappy_getMessagesForLogShouldThrowWhenLogNotFound() {
+        Long logId = 2L;
+        when(repository.findById(logId)).thenReturn(Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> logService.getMessagesForLog(logId));
+        assertEquals("Log not found", exception.getMessage());
+        verify(repository).findById(logId);
+        verifyNoInteractions(userService);
+    }
+
+    @Test
+    void unhappy_getMessagesForLogShouldThrowWhenUserNotOwner() {
+        Long logId = 3L;
+        String ownerStudentId = "owner-456";
+        String requesterStudentId = "requester-789";
+        Log existingLog = new Log("Another Log", "Desc", "Cat", "VAC-2", LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), ownerStudentId);
+        existingLog.setId(logId);
+        existingLog.setMessages(new ArrayList<>(List.of("Secret message")));
+
+        when(userService.getCurrentStudentId()).thenReturn(requesterStudentId);
+        when(repository.findById(logId)).thenReturn(Optional.of(existingLog));
+
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                () -> logService.getMessagesForLog(logId));
+        assertEquals("User not authorized to view messages for this log.", exception.getMessage());
+        verify(userService).getCurrentStudentId();
+        verify(repository).findById(logId);
+    }
+
+    @Test
+    void happy_getMessagesForLogShouldReturnEmptyListWhenNoMessages() {
+        Long logId = 4L;
+        String studentId = "user-789";
+        Log existingLog = new Log("Log With No Messages", "Desc", "Cat", "VAC-3", LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), studentId);
+        existingLog.setId(logId);
+        existingLog.setMessages(new ArrayList<>()); // Explicitly empty
+
+        when(userService.getCurrentStudentId()).thenReturn(studentId);
+        when(repository.findById(logId)).thenReturn(Optional.of(existingLog));
+
+        List<String> retrievedMessages = logService.getMessagesForLog(logId);
+
+        assertNotNull(retrievedMessages);
+        assertTrue(retrievedMessages.isEmpty());
+        verify(userService).getCurrentStudentId();
+        verify(repository).findById(logId);
+    }
 }

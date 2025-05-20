@@ -432,4 +432,59 @@ class LogControllerTest {
 
         verify(logService).addMessageToLog(logId, messageRequest.getMessage());
     }
+
+    @Test
+    @DisplayName("GET /logs/{id}/messages returns messages for a log")
+    void getMessagesForLog_returnsOkWithMessages() throws Exception {
+        Long logId = 1L;
+        List<String> messages = List.of("Message A", "Message B");
+        when(logService.getMessagesForLog(logId)).thenReturn(messages);
+
+        mockMvc.perform(get("/logs/{id}/messages", logId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0]").value("Message A"))
+                .andExpect(jsonPath("$[1]").value("Message B"));
+
+        verify(logService).getMessagesForLog(logId);
+    }
+
+    @Test
+    @DisplayName("GET /logs/{id}/messages when log not found returns 404 Not Found")
+    void getMessagesForLog_whenLogNotFound_returnsNotFound() throws Exception {
+        Long logId = 2L;
+        when(logService.getMessagesForLog(logId)).thenThrow(new IllegalArgumentException("Log not found"));
+
+        mockMvc.perform(get("/logs/{id}/messages", logId))
+                .andExpect(status().isNotFound());
+
+        verify(logService).getMessagesForLog(logId);
+    }
+
+    @Test
+    @DisplayName("GET /logs/{id}/messages when user not authorized returns 400 Bad Request")
+    void getMessagesForLog_whenUserNotOwner_returnsBadRequest() throws Exception {
+        Long logId = 3L;
+        String errorMessage = "User not authorized to view messages for this log.";
+        when(logService.getMessagesForLog(logId)).thenThrow(new IllegalStateException(errorMessage));
+
+        mockMvc.perform(get("/logs/{id}/messages", logId))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(errorMessage));
+
+        verify(logService).getMessagesForLog(logId);
+    }
+
+    @Test
+    @DisplayName("GET /logs/{id}/messages when no messages returns OK with empty list")
+    void getMessagesForLog_whenNoMessages_returnsOkWithEmptyList() throws Exception {
+        Long logId = 4L;
+        when(logService.getMessagesForLog(logId)).thenReturn(Collections.emptyList());
+
+        mockMvc.perform(get("/logs/{id}/messages", logId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        verify(logService).getMessagesForLog(logId);
+    }
 }
