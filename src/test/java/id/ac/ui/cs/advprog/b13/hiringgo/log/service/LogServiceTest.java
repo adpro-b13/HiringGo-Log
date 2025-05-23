@@ -194,34 +194,49 @@ class LogServiceTest {
     }
 
     @Test
-    void happy_getAllLogsOnlyReturnsMine() {
-        // 1) Arrange: two logs, one “mine” and one “theirs”
-        Log mine   = new Log("T1", "D1", "C", "VAC", LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now(), "user-123");
-        Log theirs = new Log("T2", "D2", "C", "VAC", LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now(), "other-456");
-        when(userService.getCurrentStudentId()).thenReturn("user-123");
-        when(repository.findAll()).thenReturn(List.of(mine, theirs));
+    void happy_getAllLogsStudent_returnsFilteredLogsForStudentAndVacancy() {
+        String studentId = "user-123";
+        String targetVacancyId = "VAC-001";
 
-        // 2) Act
-        CompletableFuture<List<Log>> futureResult = logService.getAllLogs();
-        List<Log> result = futureResult.join(); // or .get()
+        Log log1 = new Log("T1", "D1", "C", targetVacancyId, LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), studentId);
+        log1.setId(1L);
+        Log log2 = new Log("T2", "D2", "C", "VAC-002", LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now(), studentId); // Different vacancy
+        log2.setId(2L);
+        Log log3 = new Log("T3", "D3", "C", targetVacancyId, LocalDateTime.now(), LocalDateTime.now().plusHours(3), LocalDate.now(), "other-user-456"); // Different student
+        log3.setId(3L);
 
-        // 3) Assert
+        when(userService.getCurrentStudentId()).thenReturn(studentId);
+        when(repository.findAll()).thenReturn(List.of(log1, log2, log3));
+
+        CompletableFuture<List<Log>> futureResult = logService.getAllLogsStudent(targetVacancyId);
+        List<Log> result = futureResult.join();
+
         assertEquals(1, result.size());
-        assertEquals("user-123", result.get(0).getStudentId());
+        assertEquals(studentId, result.get(0).getStudentId());
+        assertEquals(targetVacancyId, result.get(0).getVacancyId());
+        assertEquals(log1.getId(), result.get(0).getId());
+
         verify(userService).getCurrentStudentId();
         verify(repository).findAll();
     }
 
     @Test
-    void unhappy_getAllLogsForUnknownUserReturnsEmpty() {
-        when(userService.getCurrentStudentId()).thenReturn("no-one");
-        when(repository.findAll()).thenReturn(List.of()); // Ensure repository returns empty if no logs for "no-one"
-        
-        CompletableFuture<List<Log>> futureResult = logService.getAllLogs();
-        assertTrue(futureResult.join().isEmpty()); // or .get()
-        
+    void happy_getAllLogsStudent_returnsEmptyListWhenNoMatchingLogs() {
+        String studentId = "user-123";
+        String targetVacancyId = "VAC-NONEXISTENT";
+
+        Log log1 = new Log("T1", "D1", "C", "VAC-001", LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), studentId);
+        log1.setId(1L);
+
+        when(userService.getCurrentStudentId()).thenReturn(studentId);
+        when(repository.findAll()).thenReturn(List.of(log1)); // Repository has logs, but not for targetVacancyId
+
+        CompletableFuture<List<Log>> futureResult = logService.getAllLogsStudent(targetVacancyId);
+        List<Log> result = futureResult.join();
+
+        assertTrue(result.isEmpty());
         verify(userService).getCurrentStudentId();
-        verify(repository).findAll(); // Verify findAll is called
+        verify(repository).findAll();
     }
 
     @Test

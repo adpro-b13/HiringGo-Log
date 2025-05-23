@@ -311,32 +311,50 @@ class LogControllerTest {
     }
 
     @Test
-    @DisplayName("GET /logs returns list of logs")
-    void getAllLogs_returnsOkWithList() throws Exception {
-        Log a = new Log("A","D","C","VAC-1",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
-        a.setId(1L);
-        Log b = new Log("B","D2","C","VAC-1",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
-        b.setId(2L);
+    @DisplayName("GET /logs/student with specific vacancyId returns filtered logs")
+    void getAllLogsStudent_withSpecificVacancyId_returnsFilteredLogs() throws Exception {
+        String specificVacancyId = "VAC-1";
+        Log log1 = new Log("Log1 for VAC-1", "D", "C", specificVacancyId,
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), "student-abc");
+        log1.setId(1L);
 
-        when(logService.getAllLogs()).thenReturn(java.util.concurrent.CompletableFuture.completedFuture(List.of(a, b)));
+        List<Log> expectedLogs = List.of(log1);
+        when(logService.getAllLogsStudent(eq(specificVacancyId)))
+                .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(expectedLogs));
 
-        mockMvc.perform(get("/logs"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.length()").value(2));
+        mockMvc.perform(get("/logs/student")
+                        .param("vacancyId", specificVacancyId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].vacancyId").value(specificVacancyId));
 
-        verify(logService).getAllLogs();
+        verify(logService).getAllLogsStudent(eq(specificVacancyId));
     }
 
     @Test
-    void whenGetAllLogs_withNoLogs_shouldReturnEmptyList() throws Exception {
-        when(logService.getAllLogs()).thenReturn(java.util.concurrent.CompletableFuture.completedFuture(Collections.emptyList()));
+    @DisplayName("GET /logs/student without vacancyId param returns 400 Bad Request")
+    void getAllLogsStudent_withoutVacancyIdParam_returnsBadRequest() throws Exception {
+        // This tests if @RequestParam(required=true) is working or if not provided,
+        // the default behavior for missing required param.
+        mockMvc.perform(get("/logs/student"))
+                .andExpect(status().isBadRequest()); // Spring typically returns 400 for missing required param
 
-        mockMvc.perform(get("/logs"))
+        verifyNoInteractions(logService);
+    }
+
+    @Test
+    @DisplayName("GET /logs/student when service returns empty list returns OK with empty list")
+    void getAllLogsStudent_whenServiceReturnsEmptyList_returnsOkWithEmptyList() throws Exception {
+        String anyVacancyId = "VAC-XYZ";
+        when(logService.getAllLogsStudent(eq(anyVacancyId)))
+                .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(Collections.emptyList()));
+
+        mockMvc.perform(get("/logs/student")
+                        .param("vacancyId", anyVacancyId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.size()").value(0));
-        verify(logService).getAllLogs();
+
+        verify(logService).getAllLogsStudent(eq(anyVacancyId));
     }
 
     @Test
