@@ -358,6 +358,54 @@ class LogControllerTest {
     }
 
     @Test
+    @DisplayName("GET /logs/lecturer with specific vacancyId returns filtered logs")
+    void getAllLogsLecturer_withSpecificVacancyId_returnsFilteredLogs() throws Exception {
+        String specificVacancyId = "VAC-L1";
+        Log log1 = new Log("Lecturer Log1 for VAC-L1", "D", "C", specificVacancyId,
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), "student-lec-abc");
+        log1.setId(101L);
+        log1.setStatus(LogStatus.REPORTED);
+
+        List<Log> expectedLogs = List.of(log1);
+        when(logService.getAllLogsLecturer(eq(specificVacancyId)))
+                .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(expectedLogs));
+
+        mockMvc.perform(get("/logs/lecturer")
+                        .param("vacancyId", specificVacancyId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].vacancyId").value(specificVacancyId))
+                .andExpect(jsonPath("$[0].status").value("REPORTED"));
+
+        verify(logService).getAllLogsLecturer(eq(specificVacancyId));
+    }
+
+    @Test
+    @DisplayName("GET /logs/lecturer without vacancyId param returns 400 Bad Request")
+    void getAllLogsLecturer_withoutVacancyIdParam_returnsBadRequest() throws Exception {
+        mockMvc.perform(get("/logs/lecturer"))
+                .andExpect(status().isBadRequest()); // Spring typically returns 400 for missing required param
+
+        verifyNoInteractions(logService);
+    }
+
+    @Test
+    @DisplayName("GET /logs/lecturer when service returns empty list returns OK with empty list")
+    void getAllLogsLecturer_whenServiceReturnsEmptyList_returnsOkWithEmptyList() throws Exception {
+        String anyVacancyId = "VAC-LXYZ";
+        when(logService.getAllLogsLecturer(eq(anyVacancyId)))
+                .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(Collections.emptyList()));
+
+        mockMvc.perform(get("/logs/lecturer")
+                        .param("vacancyId", anyVacancyId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size()").value(0));
+
+        verify(logService).getAllLogsLecturer(eq(anyVacancyId));
+    }
+
+
+    @Test
     void whenCreateLog_serviceThrowsLogValidationException_shouldReturnBadRequest() throws Exception {
         String exceptionMessage = "Service validation failed";
         // Use validLog for the payload, as the service itself is throwing the exception
