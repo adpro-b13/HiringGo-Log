@@ -150,6 +150,20 @@ public class LogServiceImpl implements LogService {
         });
     }
 
+    @Async
+    @Override
+    public CompletableFuture<List<Log>> getAllLogsLecturer(String vacancyId) {
+        return CompletableFuture.supplyAsync(() -> {
+            logger.info("Fetching logs for lecturer for vacancy ID: {} with status REPORTED", vacancyId);
+            List<Log> logs = logRepository.findAll().stream()
+                    .filter(logObject -> vacancyId.equals(logObject.getVacancyId()))
+                    .filter(logObject -> logObject.getStatus() == LogStatus.REPORTED)
+                    .collect(Collectors.toList());
+            logger.info("Found {} logs for lecturer for vacancy ID: {} with status REPORTED", logs.size(), vacancyId);
+            return logs;
+        });
+    }
+
     @Override
     public Log addMessageToLog(Long logId, String messageContent) {
         logger.info("Attempting to add message to log with ID: {}", logId);

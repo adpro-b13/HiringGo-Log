@@ -118,6 +118,15 @@ public class LogController {
         return ResponseEntity.ok(logs);
     }
 
+    // Endpoint to list all logs for a lecturer, filtered by vacancyId and status REPORTED
+    @GetMapping("/lecturer")
+    public ResponseEntity<List<Log>> getAllLogsLecturer(@RequestParam String vacancyId) {
+        logger.info("Received request to get all logs for lecturer, vacancyId: {}", vacancyId);
+        List<Log> logs = logService.getAllLogsLecturer(vacancyId).join();
+        logger.info("Returning {} logs for lecturer for vacancyId {}", logs.size(), vacancyId);
+        return ResponseEntity.ok(logs);
+    }
+
     // Endpoint for Mahasiswa to add a message to a log
     @PostMapping("/{id}/messages")
     public ResponseEntity<Object> addMessageToLog(@PathVariable Long id,

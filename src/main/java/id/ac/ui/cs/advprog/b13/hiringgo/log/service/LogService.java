@@ -12,6 +12,7 @@ public interface LogService {
     void deleteLog(Long id);
     Log verifyLog(Long id, VerificationAction action);
     CompletableFuture<List<Log>> getAllLogsStudent(String vacancyId); // Renamed and signature updated
+    CompletableFuture<List<Log>> getAllLogsLecturer(String vacancyId); // New method for lecturer
     Log addMessageToLog(Long logId, String message); // Added method
     List<String> getMessagesForLog(Long logId); // New method
 }
