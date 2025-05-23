@@ -108,12 +108,13 @@ public class LogController {
         }
     }
 
-    // Endpoint to list all logs
-    @GetMapping
-    public ResponseEntity<List<Log>> getAllLogs() {
-        logger.info("Received request to get all logs");
-        List<Log> logs = logService.getAllLogs().join();
-        logger.info("Returning {} logs", logs.size());
+
+    // Endpoint to list all logs for a student, optionally filtered by vacancyId
+    @GetMapping("/student") // Changed mapping to avoid ambiguity
+    public ResponseEntity<List<Log>> getAllLogsStudent(@RequestParam String vacancyId) {
+        logger.info("Received request to get all logs for student, vacancyId: {}", vacancyId);
+        List<Log> logs = logService.getAllLogsStudent(vacancyId).join();
+        logger.info("Returning {} logs for vacancyId {}", logs.size(), vacancyId);
         return ResponseEntity.ok(logs);
     }
 

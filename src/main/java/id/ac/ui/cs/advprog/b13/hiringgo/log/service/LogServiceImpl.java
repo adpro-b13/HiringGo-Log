@@ -134,14 +134,18 @@ public class LogServiceImpl implements LogService {
 
     @Async
     @Override
-    public CompletableFuture<List<Log>> getAllLogs() {
+    public CompletableFuture<List<Log>> getAllLogsStudent(String vacancyId) {
+        // Assuming vacancyId is validated (not null and not blank) by the controller via @RequestParam
+        // and potentially other validation annotations like @NotBlank.
         return CompletableFuture.supplyAsync(() -> {
             String currentStudentId = userService.getCurrentStudentId();
-            logger.info("Fetching all logs for student ID: {}", currentStudentId);
+            // Log assuming vacancyId is non-null and non-blank as per controller validation.
+            logger.info("Fetching logs for student ID: {} and specific vacancy ID: {}", currentStudentId, vacancyId);
             List<Log> logs = logRepository.findAll().stream()
                     .filter(logObject -> currentStudentId.equals(logObject.getStudentId()))
+                    .filter(logObject -> vacancyId.equals(logObject.getVacancyId())) // Filter by the specific vacancyId
                     .collect(Collectors.toList());
-            logger.info("Found {} logs for student ID: {}", logs.size(), currentStudentId);
+            logger.info("Found {} logs for student ID: {} and vacancy ID: {}", logs.size(), currentStudentId, vacancyId);
             return logs;
         });
     }
