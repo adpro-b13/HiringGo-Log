@@ -5,15 +5,19 @@ import id.ac.ui.cs.advprog.b13.hiringgo.log.model.DashboardHonorSummary;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.model.Log;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.model.LogStatus;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.repository.LogRepository;
+
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Month;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,7 +37,7 @@ public class DashboardHonorServiceImpl implements DashboardHonorService {
     public List<DashboardHonor> getDashboardHonor(int year, int month) {
         String studentId = userService.getCurrentStudentId();
 
-        List<Log> allLogs = logRepository.findAll().stream()
+        List<Log> allLogs = logRepository.findAll().parallelStream()
                 .filter(log -> studentId.equals(log.getStudentId()))
                 .filter(log -> log.getStatus() == LogStatus.ACCEPTED)
                 .filter(log -> log.getLogDate().getYear() == year && log.getLogDate().getMonthValue() == month)
@@ -44,12 +48,13 @@ public class DashboardHonorServiceImpl implements DashboardHonorService {
             logsByVacancy.computeIfAbsent(log.getVacancyId(), k -> new ArrayList<>()).add(log);
         }
 
-        List<DashboardHonor> dashboardHonors = new ArrayList<>();
-        for (Map.Entry<String, List<Log>> entry : logsByVacancy.entrySet()) {
+        List<DashboardHonor> dashboardHonors = Collections.synchronizedList(new ArrayList<>());
+        
+        logsByVacancy.entrySet().parallelStream().forEach(entry -> {
             String vacancyId = entry.getKey();
             List<Log> logs = entry.getValue();
 
-            String vacancyTitle = "Vacancy " + vacancyId; // Placeholder
+            String vacancyTitle = "Vacancy " + vacancyId;
 
             // Calculate total hours
             long totalMinutes = 0;
@@ -72,7 +77,7 @@ public class DashboardHonorServiceImpl implements DashboardHonorService {
                     totalHonor,
                     totalHours
             ));
-        }
+        });
 
         return dashboardHonors;
     }
@@ -81,11 +86,11 @@ public class DashboardHonorServiceImpl implements DashboardHonorService {
     public DashboardHonorSummary getDashboardHonorSummary(int year, int month) {
         List<DashboardHonor> details = getDashboardHonor(year, month);
 
-        BigDecimal totalHonor = details.stream()
+        BigDecimal totalHonor = details.parallelStream()
                 .map(DashboardHonor::getTotalHonor)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        long totalHours = details.stream()
+        long totalHours = details.parallelStream()
                 .mapToLong(DashboardHonor::getTotalHours)
                 .sum();
 
@@ -96,5 +101,15 @@ public class DashboardHonorServiceImpl implements DashboardHonorService {
                 totalHours,
                 details
         );
+    }
+    
+    @Async
+    public CompletableFuture<List<DashboardHonor>> getDashboardHonorAsync(int year, int month) {
+        return CompletableFuture.completedFuture(getDashboardHonor(year, month));
+    }
+    
+    @Async  
+    public CompletableFuture<DashboardHonorSummary> getDashboardHonorSummaryAsync(int year, int month) {
+        return CompletableFuture.completedFuture(getDashboardHonorSummary(year, month));
     }
 }
