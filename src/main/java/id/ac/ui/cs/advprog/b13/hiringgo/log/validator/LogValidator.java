@@ -11,29 +11,28 @@ import org.springframework.stereotype.Component;
 public class LogValidator {
 
     public void validate(Log log) {
-        if (log.getTitle() == null || log.getTitle().trim().isEmpty()) {
-            throw new LogValidationException("Judul log tidak boleh kosong.");
-        }
-        if (log.getVacancyId() == null || log.getVacancyId().trim().isEmpty()) {
-            throw new LogValidationException("ID lowongan tidak boleh kosong.");
-        }
+        // Basic null/empty checks for title, vacancyId, startTime, endTime, logDate
+        // are now handled by @NotBlank and @NotNull annotations on the Log model.
+        // studentId and category are also handled by @NotBlank.
 
-        if (log.getStartTime() == null || log.getEndTime() == null) {
-            throw new LogValidationException("Waktu mulai dan selesai harus diisi.");
-        }
-        if (!log.getStartTime().isBefore(log.getEndTime())) {
+        // Custom business logic validations remain here.
+        if (log.getStartTime() != null && log.getEndTime() != null && !log.getStartTime().isBefore(log.getEndTime())) {
             throw new LogValidationException("Waktu mulai harus sebelum waktu selesai.");
         }
+
         LocalDate today = LocalDate.now();
-        if (log.getLogDate() == null || log.getLogDate().isAfter(today)) {
+        if (log.getLogDate() != null && log.getLogDate().isAfter(today)) {
             throw new LogValidationException("Tanggal log tidak boleh di masa depan.");
         }
-        long durationInHours = Duration.between(log.getStartTime(), log.getEndTime()).toHours();
-        if (durationInHours > 12) {
-            throw new LogValidationException("Durasi log tidak boleh lebih dari 12 jam.");
+
+        if (log.getStartTime() != null && log.getEndTime() != null) {
+            long durationInHours = Duration.between(log.getStartTime(), log.getEndTime()).toHours();
+            if (durationInHours > 12) {
+                throw new LogValidationException("Durasi log tidak boleh lebih dari 12 jam.");
+            }
         }
         
-        // Additional validations can be added here (e.g., category validation)
+        // Additional validations can be added here (e.g., category specific logic if any)
     }
 }
 

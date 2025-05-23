@@ -15,6 +15,7 @@ import org.mockito.MockitoAnnotations;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -88,7 +89,7 @@ class LogServiceTest {
         existing.setId(id);
         existing.setStatus(LogStatus.ACCEPTED);
 
-        when(repository.findById(id)).thenReturn(existing);
+        when(repository.findById(id)).thenReturn(Optional.of(existing));
 
         Log toUpdate = new Log("Log to Update", "Will be verified", "Asistensi", "VAC-2024-1",
                 existing.getStartTime(), existing.getEndTime(), existing.getLogDate());
@@ -107,7 +108,7 @@ class LogServiceTest {
         existing.setId(id);
         existing.setStatus(LogStatus.REPORTED);
 
-        when(repository.findById(id)).thenReturn(existing);
+        when(repository.findById(id)).thenReturn(Optional.of(existing));
         doNothing().when(validator).validate(existing);
         when(repository.save(existing)).thenReturn(existing);
 
@@ -131,7 +132,7 @@ class LogServiceTest {
         existing.setId(id);
         existing.setStatus(LogStatus.REPORTED);
 
-        when(repository.findById(id)).thenReturn(existing);
+        when(repository.findById(id)).thenReturn(Optional.of(existing));
         doNothing().when(repository).delete(existing);
 
         logService.deleteLog(id);
@@ -147,7 +148,7 @@ class LogServiceTest {
         existing.setId(id);
         existing.setStatus(LogStatus.REPORTED);
 
-        when(repository.findById(id)).thenReturn(existing);
+        when(repository.findById(id)).thenReturn(Optional.of(existing));
         when(repository.save(existing)).thenAnswer(inv -> inv.getArgument(0));
 
         Log verified = logService.verifyLog(id, VerificationAction.ACCEPT);
@@ -164,7 +165,7 @@ class LogServiceTest {
         existing.setId(id);
         existing.setStatus(LogStatus.REPORTED);
 
-        when(repository.findById(id)).thenReturn(existing);
+        when(repository.findById(id)).thenReturn(Optional.of(existing));
         when(repository.save(existing)).thenAnswer(inv -> inv.getArgument(0));
 
         Log rejected = logService.verifyLog(id, VerificationAction.REJECT);
@@ -181,7 +182,7 @@ class LogServiceTest {
         existing.setId(id);
         existing.setStatus(LogStatus.ACCEPTED);
 
-        when(repository.findById(id)).thenReturn(existing);
+        when(repository.findById(id)).thenReturn(Optional.of(existing));
 
         IllegalStateException exception = assertThrows(IllegalStateException.class,
                 () -> logService.verifyLog(id, VerificationAction.REJECT));

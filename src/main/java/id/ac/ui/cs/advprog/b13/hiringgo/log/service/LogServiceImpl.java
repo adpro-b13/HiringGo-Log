@@ -10,6 +10,8 @@ import id.ac.ui.cs.advprog.b13.hiringgo.log.validator.LogValidator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -18,6 +20,7 @@ public class LogServiceImpl {
     private final LogRepository logRepository;
     private final LogValidator logValidator;
     private final UserService userService;
+    private static final Logger logger = LoggerFactory.getLogger(LogServiceImpl.class);
 
     public LogServiceImpl(LogRepository logRepository, LogValidator logValidator, UserService userService) {
         this.logRepository = logRepository;
@@ -27,57 +30,82 @@ public class LogServiceImpl {
 
     // For Mahasiswa: Create log
     public Log createLog(Log log) {
+        logger.info("Attempting to create log for student: {}", log.getStudentId());
         logValidator.validate(log);
-        return logRepository.save(log);
+        Log savedLog = logRepository.save(log);
+        logger.info("Log created with ID: {}", savedLog.getId());
+        return savedLog;
     }
 
     // For Mahasiswa: Update log (only if status is REPORTED)
     public Log updateLog(Log log) {
-
+        logger.info("Attempting to update log with ID: {}", log.getId());
         Long id = log.getId();
-        Log existing = logRepository.findById(log.getId());
+        Log existing = logRepository.findById(log.getId()).orElse(null);
         boolean isNotExist = id == null || existing == null;
         if (isNotExist) {
+            logger.warn("Log not found for update with ID: {}", id);
             throw new IllegalArgumentException("Log not found");
         }
         if (existing.getStatus() != LogStatus.REPORTED) {
+            logger.warn("Log with ID: {} cannot be updated due to status: {}", id, existing.getStatus());
             throw new IllegalStateException("Log tidak dapat diubah karena statusnya " + existing.getStatus());
         }
         logValidator.validate(log);
-        return logRepository.save(log);
+        Log updatedLog = logRepository.save(log);
+        logger.info("Log updated with ID: {}", updatedLog.getId());
+        return updatedLog;
     }
 
     // For Mahasiswa: Delete log (only if status is REPORTED)
     public void deleteLog(Long id) {
-        Log log = logRepository.findById(id);
+        logger.info("Attempting to delete log with ID: {}", id);
+        Log log = logRepository.findById(id).orElseThrow(() -> {
+            logger.warn("Log not found for verification with ID: {}", id);
+            return new IllegalArgumentException("Log not found");
+        });
         if (log == null) {
+            logger.warn("Log not found for deletion with ID: {}", id);
             throw new IllegalArgumentException("Log not found");
         }
         if (log.getStatus() != LogStatus.REPORTED) {
+            logger.warn("Log with ID: {} cannot be deleted due to status: {}", id, log.getStatus());
             throw new IllegalStateException("Log tidak dapat dihapus karena statusnya " + log.getStatus());
         }
         logRepository.delete(log);
+        logger.info("Log deleted with ID: {}", id);
     }
 
     // For Dosen: Verify log (accept or reject)
     public Log verifyLog(Long id, VerificationAction action) {
-        Log log = logRepository.findById(id);
+        logger.info("Attempting to verify log with ID: {} with action: {}", id, action);
+        Log log = logRepository.findById(id).orElseThrow(() -> {
+            logger.warn("Log not found for verification with ID: {}", id);
+            return new IllegalArgumentException("Log not found");
+        });
         if (log == null) {
+            logger.warn("Log not found for verification with ID: {}", id);
             throw new IllegalArgumentException("Log not found");
         }
         if (log.getStatus() != LogStatus.REPORTED) {
+            logger.warn("Log with ID: {} has already been verified with status: {}", id, log.getStatus());
             throw new IllegalStateException("Log sudah diverifikasi dengan status " + log.getStatus());
         }
         // Use state pattern to determine new status
         LogStatus newStatus = LogStateFactory.getState(log.getStatus()).verify(action);
         log.setStatus(newStatus);
-        return logRepository.save(log);
+        Log verifiedLog = logRepository.save(log);
+        logger.info("Log with ID: {} verified. New status: {}", id, newStatus);
+        return verifiedLog;
     }
 
     public List<Log> getAllLogs() {
-        String me = userService.getCurrentStudentId();
-        return logRepository.findAll().stream()
-                         .filter(log -> me.equals(log.getStudentId()))
+        String currentStudentId = userService.getCurrentStudentId();
+        logger.info("Fetching all logs for student ID: {}", currentStudentId);
+        List<Log> logs = logRepository.findAll().stream()
+                         .filter(log -> currentStudentId.equals(log.getStudentId()))
                          .collect(Collectors.toList());
+        logger.info("Found {} logs for student ID: {}", logs.size(), currentStudentId);
+        return logs;
     }
 }

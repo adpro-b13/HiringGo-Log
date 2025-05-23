@@ -13,20 +13,10 @@ class LogValidatorTest {
     private final LogValidator validator = new LogValidator();
 
     @Test
-    void unhappy_validateShouldFailForBlankTitle() {
-        Log log = new Log("", "Description", "Asistensi","VAC-2024-1",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
-        LogValidationException exception = assertThrows(LogValidationException.class, () -> {
-            validator.validate(log);
-        });
-        assertEquals("Judul log tidak boleh kosong.", exception.getMessage());
-    }
-
-    @Test
     void unhappy_validateShouldFailWhenStartTimeNotBeforeEndTime() {
         LocalDateTime time = LocalDateTime.now();
         Log log = new Log("Test", "Description", "Asistensi","VAC-2024-1",
-                time.plusHours(2), time.plusHours(1), LocalDate.now());
+                time.plusHours(2), time.plusHours(1), LocalDate.now(), "student-test"); // Added studentId
         LogValidationException exception = assertThrows(LogValidationException.class, () -> {
             validator.validate(log);
         });
@@ -36,7 +26,7 @@ class LogValidatorTest {
     @Test
     void unhappy_validateShouldFailForFutureLogDate() {
         Log log = new Log("Test", "Description", "Asistensi","VAC-2024-1",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now().plusDays(1));
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now().plusDays(1), "student-test"); // Added studentId
         LogValidationException exception = assertThrows(LogValidationException.class, () -> {
             validator.validate(log);
         });
@@ -46,7 +36,7 @@ class LogValidatorTest {
     @Test
     void unhappy_validateShouldFailForLongDuration() {
         Log log = new Log("Test", "Description", "Asistensi","VAC-2024-1",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(13), LocalDate.now());
+                LocalDateTime.now(), LocalDateTime.now().plusHours(13), LocalDate.now(), "student-test"); // Added studentId
         LogValidationException exception = assertThrows(LogValidationException.class, () -> {
             validator.validate(log);
         });

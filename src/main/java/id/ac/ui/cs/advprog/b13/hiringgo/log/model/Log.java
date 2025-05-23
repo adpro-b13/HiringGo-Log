@@ -3,19 +3,45 @@ package id.ac.ui.cs.advprog.b13.hiringgo.log.model;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
+@Entity
+@Table(name = "logs")
 public class Log {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @NotBlank(message = "Student ID tidak boleh kosong.")
     private String studentId;
+
+    @NotBlank(message = "Judul log tidak boleh kosong.")
+    @Size(max = 255, message = "Judul log tidak boleh lebih dari 255 karakter.")
     private String title;
-    private String description;
+
+    @NotBlank(message = "Deskripsi log tidak boleh kosong.")
+    @Size(max = 1000, message = "Deskripsi log tidak boleh lebih dari 1000 karakter.")
+    private String description; // Assuming description can be optional or empty
+
+    @NotBlank(message = "Kategori tidak boleh kosong.")
     private String category;
+
+    @NotBlank(message = "ID lowongan tidak boleh kosong.")
     private String vacancyId;
+
+    @NotNull(message = "Waktu mulai harus diisi.")
     private LocalDateTime startTime;
+
+    @NotNull(message = "Waktu selesai harus diisi.")
     private LocalDateTime endTime;
+
+    @NotNull(message = "Tanggal log harus diisi.")
     private LocalDate logDate;
+
+    @Enumerated(EnumType.STRING)
+    @NotNull
     private LogStatus status = LogStatus.REPORTED;
 
     // Constructors, getters, and setters
@@ -31,9 +57,10 @@ public class Log {
         this.endTime = endTime;
         this.logDate = logDate;
         this.studentId = studentId;
-        this.status = LogStatus.REPORTED;
+        // Default status is set by field initializer
     }
 
+    // Constructor without studentId, assuming it might be set differently or not always needed at construction
     public Log(String title, String description, String category, String vacancyId, LocalDateTime startTime, LocalDateTime endTime, LocalDate logDate) {
         this.title = title;
         this.description = description;
@@ -42,7 +69,7 @@ public class Log {
         this.startTime = startTime;
         this.endTime = endTime;
         this.logDate = logDate;
-        this.status = LogStatus.REPORTED;
+        // Default status is set by field initializer
     }
 
     // Getters and setters

@@ -1,0 +1,246 @@
+openapi: 3.0.0
+info:
+  title: HiringGo Log Service API
+  version: v1.0.0
+  description: API for managing student activity logs.
+
+servers:
+  - url: http://localhost:8080 # Adjust if your service runs on a different port or path
+    description: Local development server
+
+components:
+  schemas:
+    Log:
+      type: object
+      required:
+        - studentId
+        - title
+        - category
+        - vacancyId
+        - startTime
+        - endTime
+        - logDate
+        - description
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+          description: Unique identifier for the log.
+        studentId:
+          type: string
+          description: Identifier for the student submitting the log.
+          example: "student123"
+        title:
+          type: string
+          description: Title of the log entry.
+          maxLength: 255
+          example: "Daily Scrum Meeting"
+        description:
+          type: string
+          description: Detailed description of the activity.
+          maxLength: 1000
+          nullable: true
+          example: "Discussed progress and blockers."
+        category:
+          type: string
+          description: Category of the log (e.g., Meeting, Development, Learning).
+          example: "Meeting"
+        vacancyId:
+          type: string
+          description: Identifier for the vacancy related to this log.
+          example: "vacancy001"
+        startTime:
+          type: string
+          format: date-time
+          description: Start time of the activity.
+          example: "2024-05-20T09:00:00"
+        endTime:
+          type: string
+          format: date-time
+          description: End time of the activity.
+          example: "2024-05-20T10:00:00"
+        logDate:
+          type: string
+          format: date
+          description: Date the log entry pertains to.
+          example: "2024-05-20"
+        status:
+          type: string
+          enum: [REPORTED, ACCEPTED, REJECTED]
+          readOnly: true
+          description: Current status of the log.
+          default: REPORTED
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: A human-readable error message.
+        details:
+          type: array
+          items:
+            type: string
+          description: Optional list of specific error details.
+    VerificationRequest:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [ACCEPT, REJECT]
+          description: Action to perform on the log (ACCEPT or REJECT).
+
+  responses:
+    BadRequest:
+      description: Bad Request - Format data tidak valid.
+      content:
+        application/json:
+          schema:
+            oneOf: # Can be a single string or a list of strings
+              - type: string 
+                example: "Waktu mulai harus sebelum waktu selesai."
+              - type: array
+                items:
+                  type: string
+                example: ["Judul log tidak boleh kosong.", "ID lowongan tidak boleh kosong."]
+    NotFound:
+      description: Not Found - The specified resource could not be found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              message: "Log not found"
+    IllegalState:
+      description: Illegal State - The operation cannot be performed due to the current state of the resource.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            example:
+              message: "Log tidak dapat diubah karena statusnya ACCEPTED"
+
+paths:
+  /logs:
+    get:
+      summary: List all logs for the current student and vacancy
+      tags: [Logs]
+      responses:
+        '200':
+          description: A list of logs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Log'
+        '401':
+          description: Unauthorized (if authentication is implemented)
+    post:
+      summary: Create a new log
+      tags: [Logs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Log'
+      responses:
+        '201':
+          description: Log created successfully.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URL of the newly created log.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Log'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /logs/{id}:
+    put:
+      summary: Update an existing log
+      tags: [Logs]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the log to update.
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Log' # Note: ID in body is ignored, path ID is used.
+      responses:
+        '200':
+          description: Log updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Log'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete a log
+      tags: [Logs]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the log to delete.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Log deleted successfully.
+        '400': # For cases like trying to delete a non-REPORTED log
+          $ref: '#/components/responses/IllegalState'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /logs/{id}/verify:
+    post:
+      summary: Verify a log (Accept or Reject)
+      tags: [Logs]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the log to verify.
+          schema:
+            type: integer
+            format: int64
+        - name: action
+          in: query
+          required: true
+          description: Verification action (ACCEPT or REJECT).
+          schema:
+            type: string
+            enum: [ACCEPT, REJECT] # Case-insensitive in controller, but good to specify
+      responses:
+        '200':
+          description: Log verified successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Log'
+        '400':
+          description: Bad Request - Invalid action or log state prevents verification.
+          content:
+            application/json:
+              schema:
+                type: string # Example for invalid action
+                example: "Invalid action value. Must be ACCEPT or REJECT." 
+              # Could also be ErrorResponse for other 400s from service layer
+        '404':
+          $ref: '#/components/responses/NotFound'
