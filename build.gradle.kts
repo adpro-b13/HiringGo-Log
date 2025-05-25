@@ -42,17 +42,22 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator") // Added Actuator
     implementation("io.micrometer:micrometer-registry-prometheus") // Added Micrometer Prometheus Registry
+    implementation("org.springframework.boot:spring-boot-starter-security") // Added Spring Security
+    implementation("io.jsonwebtoken:jjwt-api:0.12.3") // Updated version
     implementation("org.postgresql:postgresql:42.5.0")
     implementation("jakarta.persistence:jakarta.persistence-api:3.1.0")
     implementation("jakarta.validation:jakarta.validation-api:3.0.2")
     implementation("com.h2database:h2")
 
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.3") // Updated version
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.3") // Updated version, or jjwt-gson if you prefer Gson
     compileOnly("org.projectlombok:lombok")
     developmentOnly("org.springframework.boot:spring-boot-devtools")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     annotationProcessor("org.projectlombok:lombok")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.security:spring-security-test") // Added for security testing
     testImplementation("com.h2database:h2") // Added H2 for testing
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

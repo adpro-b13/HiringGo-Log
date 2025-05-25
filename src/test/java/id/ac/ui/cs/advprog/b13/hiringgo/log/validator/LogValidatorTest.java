@@ -21,11 +21,11 @@ class LogValidatorTest {
                 "Valid Title",
                 "Valid Description",
                 "Valid Category",
-                "VAC-2024-VALID",
+                123L, 
                 LocalDateTime.now().minusHours(2),
                 LocalDateTime.now().minusHours(1),
                 LocalDate.now().minusDays(1),
-                "student-valid"
+                1L // Changed to Long
         );
     }
 
@@ -42,20 +42,6 @@ class LogValidatorTest {
     @Test
     void unhappy_validateShouldFailWhenStudentIdIsNull() {
         log.setStudentId(null);
-        LogValidationException exception = assertThrows(LogValidationException.class, () -> validator.validate(log));
-        assertEquals("Student ID tidak boleh kosong.", exception.getMessage());
-    }
-
-    @Test
-    void unhappy_validateShouldFailWhenStudentIdIsEmpty() {
-        log.setStudentId("");
-        LogValidationException exception = assertThrows(LogValidationException.class, () -> validator.validate(log));
-        assertEquals("Student ID tidak boleh kosong.", exception.getMessage());
-    }
-    
-    @Test
-    void unhappy_validateShouldFailWhenStudentIdIsBlank() {
-        log.setStudentId("   ");
         LogValidationException exception = assertThrows(LogValidationException.class, () -> validator.validate(log));
         assertEquals("Student ID tidak boleh kosong.", exception.getMessage());
     }
@@ -142,20 +128,6 @@ class LogValidatorTest {
     @Test
     void unhappy_validateShouldFailWhenVacancyIdIsNull() {
         log.setVacancyId(null);
-        LogValidationException exception = assertThrows(LogValidationException.class, () -> validator.validate(log));
-        assertEquals("ID lowongan tidak boleh kosong.", exception.getMessage());
-    }
-
-    @Test
-    void unhappy_validateShouldFailWhenVacancyIdIsEmpty() {
-        log.setVacancyId("");
-        LogValidationException exception = assertThrows(LogValidationException.class, () -> validator.validate(log));
-        assertEquals("ID lowongan tidak boleh kosong.", exception.getMessage());
-    }
-
-    @Test
-    void unhappy_validateShouldFailWhenVacancyIdIsBlank() {
-        log.setVacancyId("   ");
         LogValidationException exception = assertThrows(LogValidationException.class, () -> validator.validate(log));
         assertEquals("ID lowongan tidak boleh kosong.", exception.getMessage());
     }

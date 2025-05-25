@@ -13,7 +13,7 @@ public class Log {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String studentId;
+    private Long studentId; // Changed from String to Long
 
     private String title;
 
@@ -21,7 +21,7 @@ public class Log {
 
     private String category;
 
-    private String vacancyId;
+    private Long vacancyId; // Changed from String to Long
 
     private LocalDateTime startTime;
 
@@ -41,7 +41,7 @@ public class Log {
     public Log() {
     }
 
-    public Log(String title, String description, String category, String vacancyId, LocalDateTime startTime, LocalDateTime endTime, LocalDate logDate, String studentId) {
+    public Log(String title, String description, String category, Long vacancyId, LocalDateTime startTime, LocalDateTime endTime, LocalDate logDate, Long studentId) { // Changed studentId type
         this.title = title;
         this.description = description;
         this.category = category;
@@ -54,7 +54,7 @@ public class Log {
     }
 
     // Constructor without studentId, assuming it might be set differently or not always needed at construction
-    public Log(String title, String description, String category, String vacancyId, LocalDateTime startTime, LocalDateTime endTime, LocalDate logDate) {
+    public Log(String title, String description, String category, Long vacancyId, LocalDateTime startTime, LocalDateTime endTime, LocalDate logDate) { // Changed vacancyId type
         this.title = title;
         this.description = description;
         this.category = category;
@@ -99,11 +99,11 @@ public class Log {
         this.category = category;
     }
     
-    public String getVacancyId() {
+    public Long getVacancyId() { // Changed return type
         return vacancyId;
     }
 
-    public void setVacancyId(String vacancyId) {
+    public void setVacancyId(Long vacancyId) { // Changed parameter type
         this.vacancyId = vacancyId;
     }
 
@@ -139,11 +139,11 @@ public class Log {
         this.status = status;
     }
 
-    public String getStudentId() {
+    public Long getStudentId() { // Changed return type
         return studentId;
     }
 
-    public void setStudentId(String studentId) {
+    public void setStudentId(Long studentId) { // Changed parameter type
         this.studentId = studentId;
     }
 

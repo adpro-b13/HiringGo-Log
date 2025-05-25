@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.core.context.SecurityContextHolder; // Added import
 import org.springframework.stereotype.Service;
 
 @Service
@@ -22,13 +23,13 @@ public class LogServiceImpl implements LogService {
 
     private final LogRepository logRepository;
     private final LogValidator logValidator;
-    private final UserService userService;
+    // private final UserService userService; // Removed UserService
     private static final Logger logger = LoggerFactory.getLogger(LogServiceImpl.class);
 
-    public LogServiceImpl(LogRepository logRepository, LogValidator logValidator, UserService userService) {
+    public LogServiceImpl(LogRepository logRepository, LogValidator logValidator) { // Removed UserService from constructor
         this.logRepository = logRepository;
         this.logValidator = logValidator;
-        this.userService = userService;
+        // this.userService = userService; // Removed assignment
     }
 
     // For Mahasiswa: Create log
@@ -36,6 +37,11 @@ public class LogServiceImpl implements LogService {
     @Override
     public CompletableFuture<Log> createLog(Log log) {
         logger.info("Attempting to create log for student: {}", log.getStudentId());
+        // studentId is expected to be set by the controller before calling this service method.
+        // If it were to be set here, it would be:
+        // Long currentStudentId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        // log.setStudentId(currentStudentId);
+        
         logValidator.validate(log); // Synchronous validation before async task
         return CompletableFuture.supplyAsync(() -> {
             log.setStatus(LogStatus.REPORTED); // Ensure initial status
@@ -134,29 +140,29 @@ public class LogServiceImpl implements LogService {
 
     @Async
     @Override
-    public CompletableFuture<List<Log>> getAllLogsStudent(String vacancyId) {
-        // Assuming vacancyId is validated (not null and not blank) by the controller via @RequestParam
-        // and potentially other validation annotations like @NotBlank.
+    public CompletableFuture<List<Log>> getAllLogsStudent(Long studentId, Long vacancyId) { // Changed String to Long
+        // Assuming vacancyId is validated (not null) by the controller via @RequestParam
+        // and potentially other validation annotations.
+        // studentId is now passed as a parameter.
         return CompletableFuture.supplyAsync(() -> {
-            String currentStudentId = userService.getCurrentStudentId();
-            // Log assuming vacancyId is non-null and non-blank as per controller validation.
-            logger.info("Fetching logs for student ID: {} and specific vacancy ID: {}", currentStudentId, vacancyId);
+            // Log assuming vacancyId is non-null as per controller validation.
+            logger.info("Fetching logs for student ID: {} and specific vacancy ID: {}", studentId, vacancyId);
             List<Log> logs = logRepository.findAll().stream()
-                    .filter(logObject -> currentStudentId.equals(logObject.getStudentId()))
+                    .filter(logObject -> studentId.equals(logObject.getStudentId()))
                     .filter(logObject -> vacancyId.equals(logObject.getVacancyId())) // Filter by the specific vacancyId
                     .collect(Collectors.toList());
-            logger.info("Found {} logs for student ID: {} and vacancy ID: {}", logs.size(), currentStudentId, vacancyId);
+            logger.info("Found {} logs for student ID: {} and vacancy ID: {}", logs.size(), studentId, vacancyId);
             return logs;
         });
     }
 
     @Async
     @Override
-    public CompletableFuture<List<Log>> getAllLogsLecturer(String vacancyId) {
+    public CompletableFuture<List<Log>> getAllLogsLecturer(Long vacancyId) { // Changed String to Long
         return CompletableFuture.supplyAsync(() -> {
             logger.info("Fetching logs for lecturer for vacancy ID: {} with status REPORTED", vacancyId);
             List<Log> logs = logRepository.findAll().stream()
-                    .filter(logObject -> vacancyId.equals(logObject.getVacancyId()))
+                    .filter(logObject -> vacancyId.equals(logObject.getVacancyId())) // Compare Long
                     .filter(logObject -> logObject.getStatus() == LogStatus.REPORTED)
                     .collect(Collectors.toList());
             logger.info("Found {} logs for lecturer for vacancy ID: {} with status REPORTED", logs.size(), vacancyId);
@@ -173,7 +179,20 @@ public class LogServiceImpl implements LogService {
             return new IllegalArgumentException("Log not found");
         });
 
-        String currentStudentId = userService.getCurrentStudentId();
+        // Retrieve current studentId from SecurityContext for ownership check
+        // This method is not @Async, so SecurityContextHolder access is generally safe here.
+        // However, for consistency and testability, if this were to become async or complex,
+        // passing studentId as a parameter (like in getAllLogsStudent) would be better.
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!(principal instanceof Long)) {
+            // Handle cases where principal is not Long, e.g. if using UserDetails object
+            // or if a different type of principal is expected.
+            // This example assumes studentId is always Long.
+            logger.error("Principal is not of type Long. Actual type: {}", principal.getClass().getName());
+            throw new IllegalStateException("User principal is not of the expected type (Long).");
+        }
+        Long currentStudentId = (Long) principal;
+
         if (!log.getStudentId().equals(currentStudentId)) {
             logger.warn("User {} attempted to add message to log {} owned by {}. Access denied.",
                         currentStudentId, logId, log.getStudentId());
@@ -187,18 +206,28 @@ public class LogServiceImpl implements LogService {
     }
 
     @Override
-    public List<String> getMessagesForLog(Long logId) {
-        logger.info("Attempting to fetch messages for log with ID: {}", logId);
+    public List<String> getMessagesForLog(Long logId, Long userId, String userRole) {
+        logger.info("Attempting to fetch messages for log with ID: {}, User ID: {}, Role: {}", logId, userId, userRole);
         Log log = logRepository.findById(logId).orElseThrow(() -> {
             logger.warn("Log not found for fetching messages with ID: {}", logId);
             return new IllegalArgumentException("Log not found");
         });
 
-        String currentStudentId = userService.getCurrentStudentId();
-        // For now, only the owner can see messages. This could be expanded later for other roles (e.g., Dosen).
-        if (!log.getStudentId().equals(currentStudentId)) {
-            logger.warn("User {} attempted to fetch messages for log {} owned by {}. Access denied.",
-                        currentStudentId, logId, log.getStudentId());
+        // Authorization logic:
+        // MAHASISWA can only see messages if they are the owner of the log.
+        // DOSEN can see messages for any log (assuming this is the requirement).
+        boolean authorized = false;
+        if ("ROLE_MAHASISWA".equals(userRole)) {
+            if (userId != null && userId.equals(log.getStudentId())) {
+                authorized = true;
+            }
+        } else if ("ROLE_DOSEN".equals(userRole)) {
+            authorized = true; // Dosen can view any log's messages
+        }
+
+        if (!authorized) {
+            logger.warn("User {} (Role: {}) attempted to fetch messages for log {} (Owned by: {}). Access denied.",
+                        userId, userRole, logId, log.getStudentId());
             throw new IllegalStateException("User not authorized to view messages for this log.");
         }
 

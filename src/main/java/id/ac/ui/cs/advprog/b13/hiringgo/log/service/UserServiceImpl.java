@@ -8,10 +8,10 @@ import org.springframework.stereotype.Service;
 public class UserServiceImpl implements UserService {
 
     private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
-    private static final String DUMMY_STUDENT_ID = "dummy-student-123";
+    private static final Long DUMMY_STUDENT_ID = 123L; // Changed to Long
 
     @Override
-    public String getCurrentStudentId() {
+    public Long getCurrentStudentId() { // Changed return type to Long
         // This is a dummy implementation.
         // In a real scenario, this would involve security context or similar to get the authenticated user.
         logger.info("UserServiceImpl: Returning dummy student ID: {}", DUMMY_STUDENT_ID);

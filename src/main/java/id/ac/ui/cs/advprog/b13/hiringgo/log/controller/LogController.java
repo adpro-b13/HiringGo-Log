@@ -7,6 +7,8 @@ import id.ac.ui.cs.advprog.b13.hiringgo.log.validator.LogValidationException;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.dto.MessageRequest; // Added import
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
@@ -30,6 +32,7 @@ public class LogController {
 
     // Endpoint for Mahasiswa to create a log
     @PostMapping
+    @PreAuthorize("hasRole('MAHASISWA')")
     public ResponseEntity<Object> createLog(@Valid @RequestBody Log log, BindingResult bindingResult) {
         logger.info("Received request to create log: {}", log.getTitle());
         if (bindingResult.hasErrors()) {
@@ -40,6 +43,8 @@ public class LogController {
             return ResponseEntity.badRequest().body(errors);
         }
         try {
+            Long studentId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal(); // Cast to Long
+            log.setStudentId(studentId); // Set studentId from authenticated user
             Log saved = logService.createLog(log).join(); // Await the async result
             logger.info("Log created with ID: {}", saved.getId());
             return ResponseEntity.created(URI.create("/logs/" + saved.getId())).body(saved);
@@ -51,6 +56,7 @@ public class LogController {
 
     // Endpoint for Mahasiswa to update a log
     @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('MAHASISWA')")
     public ResponseEntity<Object> updateLog(@PathVariable Long id, @Valid @RequestBody Log log, BindingResult bindingResult) {
         logger.info("Received request to update log with ID: {}", id);
         if (bindingResult.hasErrors()) {
@@ -61,6 +67,10 @@ public class LogController {
             return ResponseEntity.badRequest().body(errors);
         }
         log.setId(id);
+        // Ownership check should be handled in the service layer using studentId from log or passed explicitly
+        // For example, by fetching the log by id, checking its studentId against the authenticated user.
+        // Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        // log.setStudentId(currentUserId); // Or ensure service checks this
         try {
             Log updatedLog = logService.updateLog(log); // Removed .join()
             logger.info("Log updated with ID: {}", updatedLog.getId());
@@ -76,8 +86,12 @@ public class LogController {
 
     // Endpoint for Mahasiswa to delete a log
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('MAHASISWA')")
     public ResponseEntity<Map<String, String>> deleteLog(@PathVariable Long id) {
         logger.info("Received request to delete log with ID: {}", id);
+        // Ownership check should be handled in the service layer.
+        // Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        // logService.deleteLog(id, currentUserId); // If service supports ownership check
         logService.deleteLog(id);
         logger.info("Log deleted with ID: {}", id);
         Map<String, String> response = new HashMap<>();
@@ -88,6 +102,7 @@ public class LogController {
 
     // Endpoint for Dosen to verify a log
     @PostMapping("/{id}/verify")
+    @PreAuthorize("hasRole('DOSEN')")
     public ResponseEntity<Object> verifyLog(@PathVariable Long id,
                                          @RequestParam String action) {
         logger.info("Received request to verify log with ID: {} with action: {}", id, action);
@@ -111,16 +126,21 @@ public class LogController {
 
     // Endpoint to list all logs for a student, optionally filtered by vacancyId
     @GetMapping("/student") // Changed mapping to avoid ambiguity
-    public ResponseEntity<List<Log>> getAllLogsStudent(@RequestParam String vacancyId) {
-        logger.info("Received request to get all logs for student, vacancyId: {}", vacancyId);
-        List<Log> logs = logService.getAllLogsStudent(vacancyId).join();
-        logger.info("Returning {} logs for vacancyId {}", logs.size(), vacancyId);
+    @PreAuthorize("hasRole('MAHASISWA')")
+    public ResponseEntity<List<Log>> getAllLogsStudent(@RequestParam Long vacancyId) { // Changed String to Long
+        Long studentId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        // The service could take studentId to filter logs for the authenticated student.
+        // For now, assuming service getAllLogsStudent(vacancyId) might implicitly use student context or needs update
+        logger.info("Received request to get all logs for student {}, vacancyId: {}", studentId, vacancyId);
+        List<Log> logs = logService.getAllLogsStudent(studentId, vacancyId).join();
+        logger.info("Returning {} logs for student {}, vacancyId {}", logs.size(), studentId, vacancyId);
         return ResponseEntity.ok(logs);
     }
 
     // Endpoint to list all logs for a lecturer, filtered by vacancyId and status REPORTED
     @GetMapping("/lecturer")
-    public ResponseEntity<List<Log>> getAllLogsLecturer(@RequestParam String vacancyId) {
+    @PreAuthorize("hasRole('DOSEN')")
+    public ResponseEntity<List<Log>> getAllLogsLecturer(@RequestParam Long vacancyId) { // Changed String to Long
         logger.info("Received request to get all logs for lecturer, vacancyId: {}", vacancyId);
         List<Log> logs = logService.getAllLogsLecturer(vacancyId).join();
         logger.info("Returning {} logs for lecturer for vacancyId {}", logs.size(), vacancyId);
@@ -129,6 +149,7 @@ public class LogController {
 
     // Endpoint for Mahasiswa to add a message to a log
     @PostMapping("/{id}/messages")
+    @PreAuthorize("hasRole('MAHASISWA')")
     public ResponseEntity<Object> addMessageToLog(@PathVariable Long id,
                                              @Valid @RequestBody MessageRequest messageRequest,
                                              BindingResult bindingResult) {
@@ -153,10 +174,27 @@ public class LogController {
 
     // Endpoint to get all messages for a specific log
     @GetMapping("/{id}/messages")
+    @PreAuthorize("hasAnyRole('MAHASISWA', 'DOSEN')")
     public ResponseEntity<Object> getMessagesForLog(@PathVariable Long id) {
         logger.info("Received request to get messages for log with ID: {}", id);
         try {
-            List<String> messages = logService.getMessagesForLog(id);
+            // Pass current user's ID and role to service for authorization checks
+            Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            String role = SecurityContextHolder.getContext().getAuthentication().getAuthorities().iterator().next().getAuthority();
+            
+            // Assuming principal is the user ID (Long for MAHASISWA, could be different for DOSEN)
+            // For simplicity, we'll pass the principal object and let service handle type checking if necessary,
+            // or standardize on Long if DOSEN also uses Long IDs.
+            // If DOSEN principal is not Long, this needs adjustment or a more generic way to pass user identifier.
+            Long userId = (principal instanceof Long) ? (Long) principal : null; // Example, adjust as per your UserDetails
+            if (userId == null && "ROLE_MAHASISWA".equals(role)) {
+                 // This case should ideally not happen if principal is always Long for MAHASISWA
+                 logger.error("MAHASISWA role without Long principal for log message access.");
+                 return ResponseEntity.status(500).body("Internal server error: User principal misconfiguration.");
+            }
+
+
+            List<String> messages = logService.getMessagesForLog(id, userId, role);
             logger.info("Successfully retrieved {} messages for log ID: {}", messages.size(), id);
             return ResponseEntity.ok(messages);
         } catch (IllegalArgumentException e) { // Log not found

@@ -12,7 +12,7 @@ public class LogValidator {
 
     public void validate(Log log) {
         // Validate studentId
-        if (!StringUtils.hasText(log.getStudentId())) {
+        if (log.getStudentId() == null) { // Changed validation for Long
             throw new LogValidationException("Student ID tidak boleh kosong.");
         }
 
@@ -38,7 +38,7 @@ public class LogValidator {
         }
 
         // Validate vacancyId
-        if (!StringUtils.hasText(log.getVacancyId())) {
+        if (log.getVacancyId() == null) { // Changed validation for Long
             throw new LogValidationException("ID lowongan tidak boleh kosong.");
         }
 
