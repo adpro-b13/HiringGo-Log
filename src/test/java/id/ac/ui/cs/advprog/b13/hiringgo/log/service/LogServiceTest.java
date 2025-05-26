@@ -239,13 +239,6 @@ class LogServiceTest {
         Log log3 = new Log("T3", "D3", "C", targetVacancyId, LocalDateTime.now(), LocalDateTime.now().plusHours(3), LocalDate.now(), 456L); // Different student (Long)
         log3.setId(3L);
 
-        // Authentication mocking is not strictly needed here if studentId is passed directly
-        // Authentication authentication = mock(Authentication.class);
-        // SecurityContext securityContext = mock(SecurityContext.class);
-        // when(securityContext.getAuthentication()).thenReturn(authentication);
-        // SecurityContextHolder.setContext(securityContext);
-        // when(authentication.getPrincipal()).thenReturn(studentId);
-
         when(repository.findAll()).thenReturn(List.of(log1, log2, log3));
 
         CompletableFuture<List<Log>> futureResult = logService.getAllLogsStudent(studentId, targetVacancyId); // Pass studentId
@@ -267,13 +260,6 @@ class LogServiceTest {
 
         Log log1 = new Log("T1", "D1", "C", 1L, LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), studentId); 
         log1.setId(1L);
-
-        // Authentication mocking is not strictly needed here
-        // Authentication authentication = mock(Authentication.class);
-        // SecurityContext securityContext = mock(SecurityContext.class);
-        // when(securityContext.getAuthentication()).thenReturn(authentication);
-        // SecurityContextHolder.setContext(securityContext);
-        // when(authentication.getPrincipal()).thenReturn(studentId);
 
         when(repository.findAll()).thenReturn(List.of(log1)); 
 
@@ -434,13 +420,6 @@ class LogServiceTest {
         Log existingLog = new Log("Test Log", "Desc", "Cat", 1L, LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), studentId); 
         existingLog.setId(logId);
         existingLog.setMessages(new ArrayList<>(messages));
-
-        // SecurityContextHolder mocking is no longer needed here for this method call
-        // Authentication authentication = mock(Authentication.class);
-        // SecurityContext securityContext = mock(SecurityContext.class);
-        // when(securityContext.getAuthentication()).thenReturn(authentication);
-        // SecurityContextHolder.setContext(securityContext);
-        // when(authentication.getPrincipal()).thenReturn(studentId);
 
         when(repository.findById(logId)).thenReturn(Optional.of(existingLog));
 
