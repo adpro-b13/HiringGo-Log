@@ -20,6 +20,8 @@ import org.springframework.security.core.context.SecurityContextHolder; // Added
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Optional;
+
 @Service
 public class LogServiceImpl implements LogService {
 
@@ -32,6 +34,28 @@ public class LogServiceImpl implements LogService {
         this.logRepository = logRepository;
         this.logValidator = logValidator;
         // this.userService = userService; // Removed assignment
+    }
+
+    @Override
+    public Log getLogById(Long id) {
+        if (id == null) {
+            logger.warn("Attempted to get log with null ID");
+            return null; // Or throw new IllegalArgumentException("ID cannot be null");
+        }
+        logger.info("Fetching log with ID: {}", id);
+        Optional<Log> logOptional = logRepository.findById(id);
+
+        if (logOptional.isPresent()) {
+            logger.info("Log found with ID: {}", id);
+            return logOptional.get();
+        } else {
+            logger.warn("Log not found with ID: {}", id);
+            // Option 1: Return null (as handled by the controller example I gave earlier)
+            return null;
+
+            // Option 2: Throw a custom exception (more robust for some designs)
+            // throw new ResourceNotFoundException("Log not found with ID: " + id);
+        }
     }
 
     // For Mahasiswa: Create log

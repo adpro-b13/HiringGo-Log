@@ -6,6 +6,8 @@ import id.ac.ui.cs.advprog.b13.hiringgo.log.service.LogService;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.validator.LogValidationException;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.dto.MessageRequest; // Added import
 import jakarta.validation.Valid;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -30,11 +32,36 @@ public class LogController {
         this.logService = logService;
     }
 
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('MAHASISWA')") // Adjust roles as needed
+    public ResponseEntity<Object> getLogById(@PathVariable Long id) {
+        logger.info("Received request to get log with ID: {}", id);
+        try {
+            Log log = logService.getLogById(id);
+            if (log != null) {
+                Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+                if (!log.getStudentId().equals(currentUserId)) {
+                    logger.warn("User {} attempted to access unauthorized log ID {}", currentUserId, id);
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Access denied to this log.");
+                }
+                logger.info("Returning log data for ID: {}", id);
+                return ResponseEntity.ok(log);
+            } else {
+                logger.warn("Log not found with ID: {}", id);
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            logger.error("Error retrieving log with ID {}: {}", id, e.getMessage());
+            // Return a generic error message for internal server errors
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred while retrieving the log.");
+        }
+    }
+
     // Endpoint for Mahasiswa to create a log
-    @PostMapping
+    @PostMapping("/{vacancyId}")
     @PreAuthorize("hasRole('MAHASISWA')")
-    public ResponseEntity<Object> createLog(@Valid @RequestBody Log log, BindingResult bindingResult) {
-        logger.info("Received request to create log: {}", log.getTitle());
+    public ResponseEntity<Object> createLog(@PathVariable Long vacancyId, @Valid @RequestBody Log log, BindingResult bindingResult) {
+        logger.info("Received request to create log for vacancyId {}: {}", vacancyId, log.getTitle());
         if (bindingResult.hasErrors()) {
             List<String> errors = bindingResult.getAllErrors().stream()
                                                .map(e -> e.getDefaultMessage())
@@ -45,8 +72,9 @@ public class LogController {
         try {
             Long studentId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal(); // Cast to Long
             log.setStudentId(studentId); // Set studentId from authenticated user
+            log.setVacancyId(vacancyId); // Set vacancyId from path variable
             Log saved = logService.createLog(log).join(); // Await the async result
-            logger.info("Log created with ID: {}", saved.getId());
+            logger.info("Log created with ID: {} for vacancyId: {}", saved.getId(), vacancyId);
             return ResponseEntity.created(URI.create("/logs/" + saved.getId())).body(saved);
         } catch (LogValidationException e) {
             logger.warn("Log validation exception when creating log: {}", e.getMessage());
@@ -67,10 +95,7 @@ public class LogController {
             return ResponseEntity.badRequest().body(errors);
         }
         log.setId(id);
-        // Ownership check should be handled in the service layer using studentId from log or passed explicitly
-        // For example, by fetching the log by id, checking its studentId against the authenticated user.
-        // Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        // log.setStudentId(currentUserId); // Or ensure service checks this
+       
         try {
             Log updatedLog = logService.updateLog(log); // Removed .join()
             logger.info("Log updated with ID: {}", updatedLog.getId());
@@ -89,9 +114,6 @@ public class LogController {
     @PreAuthorize("hasRole('MAHASISWA')")
     public ResponseEntity<Map<String, String>> deleteLog(@PathVariable Long id) {
         logger.info("Received request to delete log with ID: {}", id);
-        // Ownership check should be handled in the service layer.
-        // Long currentUserId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        // logService.deleteLog(id, currentUserId); // If service supports ownership check
         logService.deleteLog(id);
         logger.info("Log deleted with ID: {}", id);
         Map<String, String> response = new HashMap<>();

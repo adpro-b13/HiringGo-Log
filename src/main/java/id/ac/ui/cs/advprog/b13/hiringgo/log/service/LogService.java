@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public interface LogService {
+    Log getLogById(Long id);
     CompletableFuture<Log> createLog(Log log);
     Log updateLog(Log log);
     void deleteLog(Long id);
