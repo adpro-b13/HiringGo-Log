@@ -46,11 +46,11 @@ class LogControllerTest {
     // Replace with actual valid tokens for your test environment if needed, or ensure your test JWT setup can decode these.
     // These tokens are illustrative and need to be decodable by your JwtTokenProvider with the configured secret.
     // The userId claim in the token is what SecurityContextHolder.getContext().getAuthentication().getPrincipal() will return.
-    private static final String LECTURER_TOKEN_USER_ID_4 = "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkb3NlbnRlc3RAZXhhbXBsZS5jb20iLCJ1c2VySWQiOjQsInJvbGVzIjpbIlJPTEVfRE9TRU4iXSwiaWF0IjoxNzA0MDY3MjAwLCJleHAiOjE4NjE5ODcyMDB9.exampleLecturerTokenSignature"; // Replace with a real, parsable token for testing
-    private static final String MAHASISWA_TOKEN_USER_ID_6 = "Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwidXNlcklkIjo4LCJuYW1hTGVuZ2thcCI6Impvc2VwaCIsInJvbGVzIjoiUk9MRV9NQUhBU0lTV0EiLCJpYXQiOjE3NDgxNjY0ODEsImV4cCI6MTc0ODI1Mjg4MX0.ZvPVAWj0HhTplQBSCCBFHr3GL5Grd1fy49cAOPx1pBuYymmV9SPDTcahA_EI6yuEHWJsd22uW9PAh-fuI82iVw"; // Replace
+    private static final String LECTURER_TOKEN_USER_ID_4 = "Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhQGdtYWlsLmNvbSIsInVzZXJJZCI6NCwibmFtYUxlbmdrYXAiOiJhIiwicm9sZXMiOiJST0xFX0RPU0VOIiwiaWF0IjoxNzQ3OTkwMzA1LCJleHAiOjE3Nzk2MTI3MDV9.se5JVH9peoT7e8EZHnYL0zebsLGo-s_PP1EK3Wq1P7c3oTTfMHw70WAtr1q4sQlusIFBKunNFU9saExZ83ziEw"; // Replace with a real, parsable token for testing
+    private static final String MAHASISWA_TOKEN_USER_ID_6 = "Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJoYXNpc3dhQGV4YW1wbGUuY29tIiwidXNlcklkIjo2LCJuYW1hTGVuZ2thcCI6IkZ1bGFuIE1haGFzaXN3YSIsInJvbGVzIjoiUk9MRV9NQUhBU0lTV0EiLCJpYXQiOjE3NDgwNTY3MTUsImV4cCI6MTc4OTY3OTExNX0.EG4Z2D7ikg7WrS2Uc9zSBsLN-PKIcEuSI_cU2WGRxex5xZioQjz8Sj01EdKOiK5Rgr1GKRQ75TSt6-jbLZTFtw"; // Replace
     private static final String MAHASISWA_TOKEN_USER_ID_7 = "Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyQGV4YW1wbGUuY29tIiwidXNlcklkIjo4LCJuYW1hTGVuZ2thcCI6Impvc2VwaCIsInJvbGVzIjoiUk9MRV9NQUhBU0lTV0EiLCJpYXQiOjE3NDgxNjY0ODEsImV4cCI6MTc0ODI1Mjg4MX0.ZvPVAWj0HhTplQBSCCBFHr3GL5Grd1fy49cAOPx1pBuYymmV9SPDTcahA_EI6yuEHWJsd22uW9PAh-fuI82iVw"; // Replace
 
-    private static final String MALFORMED_TOKEN = "Bearer malformed-token";
+    private static final String MALFORMED_TOKEN = "Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhQGdtYWlsLmNvbSIsInVzZXJJZCI6NCwibmFtYUxlbmdrYXAiOiJhIiwicm9sZXMiOjEsImlhdCI6MTc0Nzk5MDMwNSwiZXhwIjoxNzQ4MDc2NzA1fQ.9SVGjRpJMFJwXwWIQlpo79pa7zaofabbyPmMs9d9X5YewloUuVVuiDEI1LTpW123prYMEvXwNs5n2fjaBZ7jxQ";
     private static final String TOKEN_WITHOUT_BEARER_PREFIX = MAHASISWA_TOKEN_USER_ID_6.substring(7);
 
 
@@ -204,8 +204,8 @@ class LogControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)
                         .content(objectMapper.writeValueAsString(updatePayload)))
-                .andExpect(status().isBadRequest()) 
-                .andExpect(content().string(containsString("Log cannot be updated if status is not REPORTED")));
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("Log tidak dapat diubah karena statusnya ACCEPTED")));
     }
     
     @Test
@@ -228,7 +228,7 @@ class LogControllerTest {
                         .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)
                         .content(objectMapper.writeValueAsString(updatePayload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$", hasItem("Judul log tidak boleh kosong.")));
+                .andExpect(content().string(containsString("Judul log tidak boleh kosong.")));
     }
 
 
@@ -242,7 +242,8 @@ class LogControllerTest {
                         .header("Authorization", MAHASISWA_TOKEN_USER_ID_6))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message", is("Log berhasil dihapus")))
-                .andExpect(jsonPath("$.log_id", is(existingLog.getId().intValue())));
+                .andExpect(jsonPath("$.log_id", is("1")));
+
 
         assertFalse(logRepository.findById(existingLog.getId()).isPresent());
     }

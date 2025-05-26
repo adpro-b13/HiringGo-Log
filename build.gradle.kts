@@ -60,6 +60,7 @@ dependencies {
     testImplementation("org.springframework.security:spring-security-test") // Added for security testing
     testImplementation("com.h2database:h2") // Added H2 for testing
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    implementation("org.springframework.boot:spring-boot-starter-security")
 }
 
 tasks.withType<Test> {
