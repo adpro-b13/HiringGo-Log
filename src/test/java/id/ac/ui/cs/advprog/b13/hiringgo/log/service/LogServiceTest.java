@@ -37,12 +37,17 @@ class LogServiceTest {
     @Mock
     private LogValidator validator;
 
-    // @Mock 
-    // private UserService userService; // Removed UserService mock
+    // Mocks for Security Context
+    @Mock
+    private SecurityContext securityContext;
+
+    @Mock
+    private Authentication authentication;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        SecurityContextHolder.setContext(securityContext);
     }
 
     @AfterEach // Added to clear security context after each test
@@ -95,7 +100,7 @@ class LogServiceTest {
 
     @Test
     void unhappy_updateLogShouldNotAllowUpdateWhenStatusNotReported() {
-        Long id = 1L;
+        Long id = 6L;
         Log existing = new Log("Log to Update", "Will be verified", "Asistensi", 100L, 
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 13L); // Added Long studentId
         existing.setId(id);
@@ -106,6 +111,13 @@ class LogServiceTest {
         Log toUpdate = new Log("Log to Update", "Will be verified", "Asistensi", 100L, 
                 existing.getStartTime(), existing.getEndTime(), existing.getLogDate(), 13L); // Added Long studentId
         toUpdate.setId(id);
+
+        // --- Add Security Context Mocking ---
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        // Assuming the principal is a Long userId as identified from your JwtAuthFilter
+        Long mockUserId = toUpdate.getStudentId(); // Use any relevant test user ID
+        when(authentication.getPrincipal()).thenReturn(mockUserId);
+        // --- End of Security Context Mocking ---
 
         assertThrows(IllegalStateException.class, () -> logService.updateLog(toUpdate));
         verify(repository).findById(id);
@@ -119,6 +131,12 @@ class LogServiceTest {
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 14L); // Added Long studentId
         existing.setId(id);
         existing.setStatus(LogStatus.REPORTED);
+
+        // Mock the security context and authentication
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+
+        Long mockUserId = existing.getStudentId();
+        when(authentication.getPrincipal()).thenReturn(mockUserId); // <<<<<<< RETURNING A LONG
 
         when(repository.findById(id)).thenReturn(Optional.of(existing));
         doNothing().when(validator).validate(existing);
@@ -143,6 +161,13 @@ class LogServiceTest {
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 15L); // Added Long studentId
         existing.setId(id);
         existing.setStatus(LogStatus.REPORTED);
+
+        // --- Add Security Context Mocking ---
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        // Assuming the principal is a Long userId as identified from your JwtAuthFilter
+        Long mockUserId = existing.getStudentId(); // Use any relevant test user ID
+        when(authentication.getPrincipal()).thenReturn(mockUserId);
+        // --- End of Security Context Mocking ---
 
         when(repository.findById(id)).thenReturn(Optional.of(existing));
         doNothing().when(repository).delete(existing);
