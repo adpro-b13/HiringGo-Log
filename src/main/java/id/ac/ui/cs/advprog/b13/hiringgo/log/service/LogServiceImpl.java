@@ -14,9 +14,11 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.context.SecurityContextHolder; // Added import
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class LogServiceImpl implements LogService {
@@ -33,23 +35,23 @@ public class LogServiceImpl implements LogService {
     }
 
     // For Mahasiswa: Create log
-    @Async
     @Override
     public CompletableFuture<Log> createLog(Log log) {
-        logger.info("Attempting to create log for student: {}", log.getStudentId());
-        // studentId is expected to be set by the controller before calling this service method.
-        // If it were to be set here, it would be:
-        // Long currentStudentId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        // log.setStudentId(currentStudentId);
-        
-        logValidator.validate(log); // Synchronous validation before async task
+        // Run validation and setup synchronously in calling thread
+        logValidator.validate(log);
+        log.setStatus(LogStatus.REPORTED);
+        return asyncCreate(log); // now safe
+    }
+
+    @Async
+    public CompletableFuture<Log> asyncCreate(Log log) {
         return CompletableFuture.supplyAsync(() -> {
-            log.setStatus(LogStatus.REPORTED); // Ensure initial status
-            Log savedLog = logRepository.save(log);
-            logger.info("Log created with ID: {}", savedLog.getId());
-            return savedLog;
+            Log saved = logRepository.save(log);
+            logger.info("Log created with ID: {}", saved.getId());
+            return saved;
         });
     }
+
 
     // For Mahasiswa: Update log (only if status is REPORTED)
     @Override
@@ -60,6 +62,14 @@ public class LogServiceImpl implements LogService {
             logger.warn("Log not found for update with ID: {}", id);
             return new IllegalArgumentException("Log not found");
         });
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        if (!existingLog.getStudentId().equals(userId)) {
+            logger.warn("User {} attempted to update log {} owned by {}. Access denied.", userId, id, existingLog.getStudentId());
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to update this log.");
+        }
+
+
 
         if (existingLog.getStatus() != LogStatus.REPORTED) {
             logger.warn("Log with ID: {} cannot be updated due to status: {}", id, existingLog.getStatus());
@@ -98,21 +108,36 @@ public class LogServiceImpl implements LogService {
     @Override
     public void deleteLog(Long id) {
         logger.info("Attempting to delete log with ID: {}", id);
+
         Log log = logRepository.findById(id).orElseThrow(() -> {
-            logger.warn("Log not found for verification with ID: {}", id);
+            logger.warn("Log not found for deletion with ID: {}", id);
             return new IllegalArgumentException("Log not found");
         });
-        if (log == null) {
-            logger.warn("Log not found for deletion with ID: {}", id);
-            throw new IllegalArgumentException("Log not found");
+
+        // 🔒 Check if the current user is the owner
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!(principal instanceof Long)) {
+            logger.error("Principal is not of type Long. Actual: {}", principal.getClass().getName());
+            throw new IllegalStateException("User principal is not of the expected type (Long).");
         }
+        Long currentUserId = (Long) principal;
+
+        if (!log.getStudentId().equals(currentUserId)) {
+            logger.warn("User {} attempted to delete log {} owned by {}. Access denied.",
+                    currentUserId, id, log.getStudentId());
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to delete this log.");
+
+        }
+
         if (log.getStatus() != LogStatus.REPORTED) {
             logger.warn("Log with ID: {} cannot be deleted due to status: {}", id, log.getStatus());
-            throw new IllegalStateException("Log tidak dapat dihapus karena statusnya " + log.getStatus());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Log tidak dapat dihapus karena statusnya " + log.getStatus());
         }
+
         logRepository.delete(log);
         logger.info("Log deleted with ID: {}", id);
     }
+
 
     // For Dosen: Verify log (accept or reject)
     @Override
