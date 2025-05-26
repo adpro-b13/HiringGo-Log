@@ -456,13 +456,6 @@ class LogServiceTest {
         existingLog.setId(logId);
         existingLog.setMessages(new ArrayList<>(List.of("Secret message")));
 
-        // SecurityContextHolder mocking is no longer needed here
-        // Authentication authentication = mock(Authentication.class);
-        // SecurityContext securityContext = mock(SecurityContext.class);
-        // when(securityContext.getAuthentication()).thenReturn(authentication);
-        // SecurityContextHolder.setContext(securityContext);
-        // when(authentication.getPrincipal()).thenReturn(requesterStudentId);
-
         when(repository.findById(logId)).thenReturn(Optional.of(existingLog));
 
         IllegalStateException exception = assertThrows(IllegalStateException.class,
@@ -481,13 +474,6 @@ class LogServiceTest {
         existingLog.setId(logId);
         existingLog.setMessages(new ArrayList<>()); 
 
-        // SecurityContextHolder mocking is no longer needed here
-        // Authentication authentication = mock(Authentication.class);
-        // SecurityContext securityContext = mock(SecurityContext.class);
-        // when(securityContext.getAuthentication()).thenReturn(authentication);
-        // SecurityContextHolder.setContext(securityContext);
-        // when(authentication.getPrincipal()).thenReturn(studentId);
-
         when(repository.findById(logId)).thenReturn(Optional.of(existingLog));
 
         List<String> retrievedMessages = logService.getMessagesForLog(logId, studentId, userRole);
@@ -496,5 +482,40 @@ class LogServiceTest {
         assertTrue(retrievedMessages.isEmpty());
         // verify(userService).getCurrentStudentId(); // Removed verification
         verify(repository).findById(logId);
+    }
+
+    @Test
+    void happy_getLogById_shouldReturnLogWhenExists() {
+        Long logId = 1L;
+        Log expectedLog = new Log("Test Log", "Description", "Category", 10L,
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 1L);
+        expectedLog.setId(logId);
+
+        when(repository.findById(logId)).thenReturn(Optional.of(expectedLog));
+
+        Log actualLog = logService.getLogById(logId);
+
+        assertNotNull(actualLog);
+        assertEquals(expectedLog.getId(), actualLog.getId());
+        assertEquals(expectedLog.getTitle(), actualLog.getTitle());
+        verify(repository).findById(logId);
+    }
+
+    @Test
+    void unhappy_getLogById_shouldReturnNullWhenNotExists() {
+        Long logId = 99L; // Non-existent ID
+        when(repository.findById(logId)).thenReturn(Optional.empty());
+
+        Log actualLog = logService.getLogById(logId);
+
+        assertNull(actualLog);
+        verify(repository).findById(logId);
+    }
+
+    @Test
+    void unhappy_getLogById_shouldReturnNullWhenIdIsNull() {
+        Log actualLog = logService.getLogById(null);
+        assertNull(actualLog);
+        verifyNoInteractions(repository); // Repository should not be called if ID is null
     }
 }

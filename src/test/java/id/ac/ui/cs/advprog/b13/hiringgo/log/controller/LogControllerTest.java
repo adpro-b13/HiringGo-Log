@@ -64,16 +64,70 @@ class LogControllerTest {
     }
 
     @Test
-    void createLog_success() throws Exception {
-        Log logPayload = createSampleLogEntity(null, 1L); // studentId will be set from token
+    void getLogById_success_studentOwner() throws Exception {
+        Log log = createSampleLogEntity(6L, 1L); // Owned by student 6
+        logRepository.save(log);
 
-        mockMvc.perform(post("/logs")
+        mockMvc.perform(get("/logs/" + log.getId())
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(log.getId().intValue())))
+                .andExpect(jsonPath("$.title", is(log.getTitle())))
+                .andExpect(jsonPath("$.studentId", is(6)));
+    }
+
+    @Test
+    void getLogById_fail_logNotFound() throws Exception {
+        mockMvc.perform(get("/logs/9999") // Non-existent log ID
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getLogById_fail_notOwner() throws Exception {
+        Log log = createSampleLogEntity(7L, 1L); // Owned by student 7
+        logRepository.save(log);
+
+        mockMvc.perform(get("/logs/" + log.getId())
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)) // Student 6 tries to access
+                .andExpect(status().isForbidden())
+                .andExpect(content().string("Access denied to this log."));
+    }
+
+    @Test
+    void getLogById_fail_noToken() throws Exception {
+        Log log = createSampleLogEntity(6L, 1L);
+        logRepository.save(log);
+
+        mockMvc.perform(get("/logs/" + log.getId()))
+                .andExpect(status().isForbidden()); // Or isUnauthorized() depending on filter order
+    }
+
+    @Test
+    void getLogById_fail_lecturerTokenNotAllowed() throws Exception {
+        Log log = createSampleLogEntity(6L, 1L); // Log owned by a student
+        logRepository.save(log);
+
+        mockMvc.perform(get("/logs/" + log.getId())
+                        .header("Authorization", LECTURER_TOKEN_USER_ID_4)) // Lecturer token
+                .andExpect(status().isForbidden()); // Due to @PreAuthorize("hasRole('MAHASISWA')")
+    }
+
+
+    @Test
+    void createLog_success() throws Exception {
+        Long vacancyId = 1L; // Define a sample vacancyId
+        // studentId will be set from token, vacancyId will be set from path
+        Log logPayload = createSampleLogEntity(null, null);
+
+        mockMvc.perform(post("/logs/{vacancyId}", vacancyId) // Corrected path
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)
                         .content(objectMapper.writeValueAsString(logPayload)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.title", is(logPayload.getTitle())))
-                .andExpect(jsonPath("$.studentId", is(6))) // Assuming token for userId 6
+                .andExpect(jsonPath("$.studentId", is(6))) // Assuming token for userId 6 resolves to 6L
+                .andExpect(jsonPath("$.vacancyId", is(vacancyId.intValue()))) // Added check for vacancyId
                 .andExpect(jsonPath("$.status", is(LogStatus.REPORTED.name())));
     }
 
@@ -111,25 +165,30 @@ class LogControllerTest {
 
     @Test
     void createLog_fail_lecturerTokenNotAllowed() throws Exception {
-        Log logPayload = createSampleLogEntity(null, 1L);
-        mockMvc.perform(post("/logs")
+        Long vacancyId = 1L; // Define a sample vacancyId
+        Log logPayload = createSampleLogEntity(null, null);
+
+        mockMvc.perform(post("/logs/{vacancyId}", vacancyId) // Corrected path
                         .contentType(MediaType.APPLICATION_JSON)
-                        .header("Authorization", LECTURER_TOKEN_USER_ID_4)
+                        .header("Authorization", LECTURER_TOKEN_USER_ID_4) // Assuming this token has ROLE_LECTURER
                         .content(objectMapper.writeValueAsString(logPayload)))
                 .andExpect(status().isForbidden());
     }
-    
+
     @Test
     void createLog_validationError_blankTitle() throws Exception {
-        Log logPayload = createSampleLogEntity(null, 1L);
+        Long vacancyId = 1L; // Define a sample vacancyId
+        Log logPayload = createSampleLogEntity(null, null); // studentId from token, vacancyId from path
         logPayload.setTitle(""); // Invalid title
 
-        mockMvc.perform(post("/logs")
-                        .contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/logs/{vacancyId}", vacancyId)
+                        .contentType(MediaType.APPLICATION_JSON) // This is the request's content type
                         .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)
                         .content(objectMapper.writeValueAsString(logPayload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Judul log tidak boleh kosong.")); // Assuming this is the validation message
+                // Corrected expectations for text/plain response:
+                .andExpect(content().contentType("text/plain;charset=UTF-8"))
+                .andExpect(content().string("Judul log tidak boleh kosong.")); // Expect the raw string
     }
 
     @Test
