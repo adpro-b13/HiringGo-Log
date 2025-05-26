@@ -45,11 +45,9 @@ public class LogServiceImpl implements LogService {
 
     @Async
     public CompletableFuture<Log> asyncCreate(Log log) {
-        return CompletableFuture.supplyAsync(() -> {
-            Log saved = logRepository.save(log);
-            logger.info("Log created with ID: {}", saved.getId());
-            return saved;
-        });
+        Log savedLog = logRepository.save(log);
+        logger.info("Log created with ID: {}", savedLog.getId());
+        return CompletableFuture.completedFuture(savedLog);
     }
 
 

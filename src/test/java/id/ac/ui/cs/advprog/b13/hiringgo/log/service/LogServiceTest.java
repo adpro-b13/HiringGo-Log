@@ -25,6 +25,12 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+
+
+
 
 class LogServiceTest {
 
@@ -44,6 +50,8 @@ class LogServiceTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
     }
+
+
 
     @AfterEach // Added to clear security context after each test
     void tearDown() {
@@ -96,6 +104,11 @@ class LogServiceTest {
     @Test
     void unhappy_updateLogShouldNotAllowUpdateWhenStatusNotReported() {
         Long id = 1L;
+        Authentication authentication = mock(Authentication.class);
+        when(authentication.getPrincipal()).thenReturn(13L); // Use the studentId of the log you're testing
+        SecurityContext context = mock(SecurityContext.class);
+        when(context.getAuthentication()).thenReturn(authentication);
+        SecurityContextHolder.setContext(context);
         Log existing = new Log("Log to Update", "Will be verified", "Asistensi", 100L, 
                 LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 13L); // Added Long studentId
         existing.setId(id);
@@ -115,8 +128,18 @@ class LogServiceTest {
     @Test
     void happy_updateLogShouldSucceedWhenStatusReported() {
         Long id = 2L;
-        Log existing = new Log("Log to Update", "Initial description", "Asistensi", 101L, 
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 14L); // Added Long studentId
+        Long studentId = 14L;
+
+        // ✅ Mock security context
+        Authentication authentication = mock(Authentication.class);
+        when(authentication.getPrincipal()).thenReturn(studentId);
+        SecurityContext context = mock(SecurityContext.class);
+        when(context.getAuthentication()).thenReturn(authentication);
+        SecurityContextHolder.setContext(context);
+
+        // Existing log
+        Log existing = new Log("Log to Update", "Initial description", "Asistensi", 101L,
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), studentId);
         existing.setId(id);
         existing.setStatus(LogStatus.REPORTED);
 
@@ -136,11 +159,21 @@ class LogServiceTest {
         verify(repository).save(existing);
     }
 
+
     @Test
     void happy_deleteLogShouldRemoveLog() {
         Long id = 3L;
-        Log existing = new Log("Log to Delete", "Some description", "Asistensi", 102L, 
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 15L); // Added Long studentId
+        Long studentId = 15L;
+
+        // ✅ Mock security context
+        Authentication authentication = mock(Authentication.class);
+        when(authentication.getPrincipal()).thenReturn(studentId);
+        SecurityContext context = mock(SecurityContext.class);
+        when(context.getAuthentication()).thenReturn(authentication);
+        SecurityContextHolder.setContext(context);
+
+        Log existing = new Log("Log to Delete", "Some description", "Asistensi", 102L,
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), studentId);
         existing.setId(id);
         existing.setStatus(LogStatus.REPORTED);
 
@@ -148,9 +181,11 @@ class LogServiceTest {
         doNothing().when(repository).delete(existing);
 
         logService.deleteLog(id);
+
         verify(repository).findById(id);
         verify(repository).delete(existing);
     }
+
 
     @Test
     void happy_verifyLogShouldChangeStatusToAccepted() {
