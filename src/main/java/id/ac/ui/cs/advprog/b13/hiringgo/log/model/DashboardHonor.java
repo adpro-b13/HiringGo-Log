@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.time.Month;
 
 public class DashboardHonor {
-    private String vacancyId;
+    private Long vacancyId; // Changed from String to Long
     private String vacancyTitle;
     private int year;
     private Month month;
@@ -14,7 +14,7 @@ public class DashboardHonor {
     public DashboardHonor() {
     }
 
-    public DashboardHonor(String vacancyId, String vacancyTitle, int year, Month month, BigDecimal totalHonor, long totalHours) {
+    public DashboardHonor(Long vacancyId, String vacancyTitle, int year, Month month, BigDecimal totalHonor, long totalHours) { // Changed parameter type
         this.vacancyId = vacancyId;
         this.vacancyTitle = vacancyTitle;
         this.year = year;
@@ -23,11 +23,11 @@ public class DashboardHonor {
         this.totalHours = totalHours;
     }
 
-    public String getVacancyId() {
+    public Long getVacancyId() { // Changed return type
         return vacancyId;
     }
 
-    public void setVacancyId(String vacancyId) {
+    public void setVacancyId(Long vacancyId) { // Changed parameter type
         this.vacancyId = vacancyId;
     }
 

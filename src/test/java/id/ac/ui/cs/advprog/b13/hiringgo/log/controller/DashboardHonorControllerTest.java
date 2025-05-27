@@ -37,9 +37,9 @@ class DashboardHonorControllerTest {
         int year = 2025;
         int month = 5;
 
-        DashboardHonor honor1 = new DashboardHonor("vacancy123", "Vacancy Title 1", year, Month.of(month),
+        DashboardHonor honor1 = new DashboardHonor(123L, "Vacancy Title 1", year, Month.of(month), // Changed from "vacancy123" to 123L
                 new BigDecimal("110000"), 4);
-        DashboardHonor honor2 = new DashboardHonor("vacancy456", "Vacancy Title 2", year, Month.of(month),
+        DashboardHonor honor2 = new DashboardHonor(456L, "Vacancy Title 2", year, Month.of(month), // Changed from "vacancy456" to 456L
                 new BigDecimal("55000"), 2);
 
         List<DashboardHonor> expectedHonors = Arrays.asList(honor1, honor2);
@@ -59,9 +59,9 @@ class DashboardHonorControllerTest {
         int year = 2025;
         int month = 5;
 
-        DashboardHonor honor1 = new DashboardHonor("vacancy123", "Vacancy Title 1", year, Month.of(month),
+        DashboardHonor honor1 = new DashboardHonor(123L, "Vacancy Title 1", year, Month.of(month), // Changed from "vacancy123" to 123L
                 new BigDecimal("110000"), 4);
-        DashboardHonor honor2 = new DashboardHonor("vacancy456", "Vacancy Title 2", year, Month.of(month),
+        DashboardHonor honor2 = new DashboardHonor(456L, "Vacancy Title 2", year, Month.of(month), // Changed from "vacancy456" to 456L
                 new BigDecimal("55000"), 2);
 
         List<DashboardHonor> details = Arrays.asList(honor1, honor2);

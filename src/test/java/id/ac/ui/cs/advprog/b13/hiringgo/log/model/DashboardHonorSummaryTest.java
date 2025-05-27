@@ -25,7 +25,7 @@ class DashboardHonorSummaryTest {
         dashboardHonorSummary = new DashboardHonorSummary();
 
         DashboardHonor honor1 = new DashboardHonor(
-                "VAC-001",
+                1L, // Changed from "VAC-001" to Long
                 "Software Engineer",
                 year,
                 month,
@@ -34,7 +34,7 @@ class DashboardHonorSummaryTest {
         );
 
         DashboardHonor honor2 = new DashboardHonor(
-                "VAC-002",
+                2L, // Changed from "VAC-002" to Long
                 "Data Scientist",
                 year,
                 month,
@@ -123,7 +123,7 @@ class DashboardHonorSummaryTest {
 
         List<DashboardHonor> modifiableList = dashboardHonorSummary.getDetails();
         DashboardHonor honor3 = new DashboardHonor(
-                "VAC-003",
+                3L, // Changed from "VAC-003" to Long
                 "UI/UX Designer",
                 year,
                 month,

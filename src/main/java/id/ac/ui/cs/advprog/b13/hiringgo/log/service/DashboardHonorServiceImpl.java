@@ -27,7 +27,6 @@ public class DashboardHonorServiceImpl implements DashboardHonorService {
     private final LogRepository logRepository;
     private final UserService userService;
 
-
     public DashboardHonorServiceImpl(LogRepository logRepository, UserService userService) {
         this.logRepository = logRepository;
         this.userService = userService;
@@ -35,15 +34,15 @@ public class DashboardHonorServiceImpl implements DashboardHonorService {
 
     @Override
     public List<DashboardHonor> getDashboardHonor(int year, int month) {
-        String studentId = userService.getCurrentStudentId();
+        Long studentId = userService.getCurrentStudentId(); // Changed to Long
 
         List<Log> allLogs = logRepository.findAll().parallelStream()
-                .filter(log -> studentId.equals(log.getStudentId()))
+                .filter(log -> studentId.equals(log.getStudentId())) // Now comparing Long with Long
                 .filter(log -> log.getStatus() == LogStatus.ACCEPTED)
                 .filter(log -> log.getLogDate().getYear() == year && log.getLogDate().getMonthValue() == month)
                 .collect(Collectors.toList());
 
-        Map<String, List<Log>> logsByVacancy = new HashMap<>();
+        Map<Long, List<Log>> logsByVacancy = new HashMap<>(); // Changed key type to Long
         for (Log log : allLogs) {
             logsByVacancy.computeIfAbsent(log.getVacancyId(), k -> new ArrayList<>()).add(log);
         }
@@ -51,7 +50,7 @@ public class DashboardHonorServiceImpl implements DashboardHonorService {
         List<DashboardHonor> dashboardHonors = Collections.synchronizedList(new ArrayList<>());
         
         logsByVacancy.entrySet().parallelStream().forEach(entry -> {
-            String vacancyId = entry.getKey();
+            Long vacancyId = entry.getKey(); // Changed to Long
             List<Log> logs = entry.getValue();
 
             String vacancyTitle = "Vacancy " + vacancyId;
@@ -70,7 +69,7 @@ public class DashboardHonorServiceImpl implements DashboardHonorService {
             BigDecimal totalHonor = HOURLY_RATE.multiply(hoursPrecise);
 
             dashboardHonors.add(new DashboardHonor(
-                    vacancyId,
+                    vacancyId, // Now passing Long instead of String
                     vacancyTitle,
                     year,
                     Month.of(month),
