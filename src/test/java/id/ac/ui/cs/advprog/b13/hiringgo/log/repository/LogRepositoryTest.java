@@ -24,8 +24,8 @@ class LogRepositoryTest {
 
     @Test
     void whenSaveNewLog_thenIdAssignedAndCanBeFound() {
-        Log log = new Log("Title", "Desc", "Cat", "VAC-1",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), "student-123");
+        Log log = new Log("Title", "Desc", "Cat", 1L, 
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 123L); // studentId as Long
         // ID is null before persisting with JPA
         assertNull(log.getId());
 
@@ -41,13 +41,13 @@ class LogRepositoryTest {
 
     @Test
     void whenSaveMultiple_thenIdsIncrementOrAreUnique() {
-        Log firstLog = new Log("A","B","C","V",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), "student-abc");
+        Log firstLog = new Log("A","B","C", 10L, 
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 100L); // studentId as Long
         Log savedFirst = repository.save(firstLog);
         entityManager.flush();
 
-        Log secondLog = new Log("X","Y","Z","V",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), "student-xyz");
+        Log secondLog = new Log("X","Y","Z", 11L, 
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 200L); // studentId as Long
         Log savedSecond = repository.save(secondLog);
         entityManager.flush();
         entityManager.clear();
@@ -62,8 +62,8 @@ class LogRepositoryTest {
 
     @Test
     void whenDeleteLog_thenCannotBeFound() {
-        Log log = new Log("T","D","C","V",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), "student-delete");
+        Log log = new Log("T","D","C", 20L, 
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 300L); // studentId as Long
         Log saved = repository.save(log);
         entityManager.flush();
         Long id = saved.getId();
@@ -79,13 +79,13 @@ class LogRepositoryTest {
 
     @Test
     void whenFindAll_thenReturnAllSaved() {
-        Log log1 = new Log("1","D1","C","V",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), "s1");
+        Log log1 = new Log("1","D1","C", 30L, 
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 400L); // studentId as Long
         repository.save(log1);
 
 
-        Log log2 = new Log("2","D2","C","V",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), "s2");
+        Log log2 = new Log("2","D2","C", 31L, 
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 500L); // studentId as Long
         repository.save(log2);
         entityManager.flush();
         entityManager.clear();

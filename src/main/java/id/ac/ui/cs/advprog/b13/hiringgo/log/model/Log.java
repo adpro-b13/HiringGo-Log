@@ -3,9 +3,8 @@ package id.ac.ui.cs.advprog.b13.hiringgo.log.model;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "logs")
@@ -14,41 +13,35 @@ public class Log {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "Student ID tidak boleh kosong.")
-    private String studentId;
+    private Long studentId; // Changed from String to Long
 
-    @NotBlank(message = "Judul log tidak boleh kosong.")
-    @Size(max = 255, message = "Judul log tidak boleh lebih dari 255 karakter.")
     private String title;
 
-    @NotBlank(message = "Deskripsi log tidak boleh kosong.")
-    @Size(max = 1000, message = "Deskripsi log tidak boleh lebih dari 1000 karakter.")
-    private String description; // Assuming description can be optional or empty
+    private String description; 
 
-    @NotBlank(message = "Kategori tidak boleh kosong.")
     private String category;
 
-    @NotBlank(message = "ID lowongan tidak boleh kosong.")
-    private String vacancyId;
+    private Long vacancyId; // Changed from String to Long
 
-    @NotNull(message = "Waktu mulai harus diisi.")
     private LocalDateTime startTime;
 
-    @NotNull(message = "Waktu selesai harus diisi.")
     private LocalDateTime endTime;
 
-    @NotNull(message = "Tanggal log harus diisi.")
     private LocalDate logDate;
 
     @Enumerated(EnumType.STRING)
-    @NotNull
     private LogStatus status = LogStatus.REPORTED;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "log_messages", joinColumns = @JoinColumn(name = "log_id"))
+    @Column(name = "message")
+    private List<String> messages = new ArrayList<>();
 
     // Constructors, getters, and setters
     public Log() {
     }
 
-    public Log(String title, String description, String category, String vacancyId, LocalDateTime startTime, LocalDateTime endTime, LocalDate logDate, String studentId) {
+    public Log(String title, String description, String category, Long vacancyId, LocalDateTime startTime, LocalDateTime endTime, LocalDate logDate, Long studentId) { // Changed studentId type
         this.title = title;
         this.description = description;
         this.category = category;
@@ -61,7 +54,7 @@ public class Log {
     }
 
     // Constructor without studentId, assuming it might be set differently or not always needed at construction
-    public Log(String title, String description, String category, String vacancyId, LocalDateTime startTime, LocalDateTime endTime, LocalDate logDate) {
+    public Log(String title, String description, String category, Long vacancyId, LocalDateTime startTime, LocalDateTime endTime, LocalDate logDate) { // Changed vacancyId type
         this.title = title;
         this.description = description;
         this.category = category;
@@ -106,11 +99,11 @@ public class Log {
         this.category = category;
     }
     
-    public String getVacancyId() {
+    public Long getVacancyId() { // Changed return type
         return vacancyId;
     }
 
-    public void setVacancyId(String vacancyId) {
+    public void setVacancyId(Long vacancyId) { // Changed parameter type
         this.vacancyId = vacancyId;
     }
 
@@ -146,10 +139,19 @@ public class Log {
         this.status = status;
     }
 
-    public String getStudentId() {
+    public Long getStudentId() { // Changed return type
         return studentId;
     }
-    public void setStudentId(String studentId) {
+
+    public void setStudentId(Long studentId) { // Changed parameter type
         this.studentId = studentId;
+    }
+
+    public List<String> getMessages() {
+        return messages;
+    }
+
+    public void setMessages(List<String> messages) {
+        this.messages = messages;
     }
 }
