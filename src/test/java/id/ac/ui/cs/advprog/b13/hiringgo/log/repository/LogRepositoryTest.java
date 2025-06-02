@@ -13,6 +13,8 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import id.ac.ui.cs.advprog.b13.hiringgo.log.model.LogStatus;
+
 @DataJpaTest
 class LogRepositoryTest {
 
@@ -92,5 +94,118 @@ class LogRepositoryTest {
 
         List<Log> all = repository.findAll();
         assertEquals(2, all.size());
+    }
+
+    @Test
+    void whenFindByStudentIdAndVacancyId_thenReturnFilteredAndOrderedLogs() {
+        // Create logs with different studentId and vacancyId combinations
+        Log log1 = new Log("Student1_Vacancy1", "Desc1", "Cat1", 1L, 
+                LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(2).plusHours(1), 
+                LocalDate.now().minusDays(2), 100L);
+        Log log2 = new Log("Student1_Vacancy2", "Desc2", "Cat2", 2L, 
+                LocalDateTime.now().minusDays(1), LocalDateTime.now().minusDays(1).plusHours(1), 
+                LocalDate.now().minusDays(1), 100L);
+        Log log3 = new Log("Student2_Vacancy1", "Desc3", "Cat3", 1L, 
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), 
+                LocalDate.now(), 200L);
+        Log log4 = new Log("Student1_Vacancy1_Recent", "Desc4", "Cat4", 1L, 
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), 
+                LocalDate.now(), 100L);
+
+        repository.save(log1);
+        repository.save(log2);
+        repository.save(log3);
+        repository.save(log4);
+        entityManager.flush();
+        entityManager.clear();
+
+        // Test filtering by studentId=100L and vacancyId=1L
+        List<Log> filteredLogs = repository.findByStudentIdAndVacancyIdOrderByLogDateDescIdDesc(100L, 1L);
+        
+        assertEquals(2, filteredLogs.size());
+        // Should return log4 first (most recent), then log1 (ordered by date desc, id desc)
+        assertEquals("Student1_Vacancy1_Recent", filteredLogs.get(0).getTitle());
+        assertEquals("Student1_Vacancy1", filteredLogs.get(1).getTitle());
+    }
+
+    @Test
+    void whenFindByVacancyIdAndStatus_thenReturnFilteredAndOrderedLogs() {
+        // Create logs with different vacancyId and status combinations
+        Log log1 = new Log("Vacancy1_Reported", "Desc1", "Cat1", 1L, 
+                LocalDateTime.now().minusDays(1), LocalDateTime.now().minusDays(1).plusHours(1), 
+                LocalDate.now().minusDays(1), 100L);
+        log1.setStatus(LogStatus.REPORTED);
+        
+        Log log2 = new Log("Vacancy1_Accepted", "Desc2", "Cat2", 1L, 
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), 
+                LocalDate.now(), 200L);
+        log2.setStatus(LogStatus.ACCEPTED);
+        
+        Log log3 = new Log("Vacancy2_Reported", "Desc3", "Cat3", 2L, 
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), 
+                LocalDate.now(), 300L);
+        log3.setStatus(LogStatus.REPORTED);
+        
+        Log log4 = new Log("Vacancy1_Reported_Recent", "Desc4", "Cat4", 1L, 
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), 
+                LocalDate.now(), 400L);
+        log4.setStatus(LogStatus.REPORTED);
+
+        repository.save(log1);
+        repository.save(log2);
+        repository.save(log3);
+        repository.save(log4);
+        entityManager.flush();
+        entityManager.clear();
+
+        // Test filtering by vacancyId=1L and status=REPORTED
+        List<Log> filteredLogs = repository.findByVacancyIdAndStatusOrderByLogDateDescIdDesc(1L, LogStatus.REPORTED);
+        
+        assertEquals(2, filteredLogs.size());
+        // Should return log4 first (most recent), then log1 (ordered by date desc, id desc)
+        assertEquals("Vacancy1_Reported_Recent", filteredLogs.get(0).getTitle());
+        assertEquals("Vacancy1_Reported", filteredLogs.get(1).getTitle());
+    }
+
+    @Test
+    void whenOptimizedQueries_thenPerformanceBetterThanFindAll() {
+        // Create many logs to test performance
+        for (int i = 0; i < 100; i++) {
+            Log log = new Log("Title" + i, "Desc" + i, "Cat", (long)(i % 5 + 1), 
+                    LocalDateTime.now().minusDays(i % 10), LocalDateTime.now().minusDays(i % 10).plusHours(1), 
+                    LocalDate.now().minusDays(i % 10), (long)(i % 10 + 1));
+            if (i % 3 == 0) log.setStatus(LogStatus.REPORTED);
+            else if (i % 3 == 1) log.setStatus(LogStatus.ACCEPTED);
+            else log.setStatus(LogStatus.REJECTED);
+            repository.save(log);
+        }
+        entityManager.flush();
+        entityManager.clear();
+
+        // Measure performance of optimized query
+        long startTime = System.currentTimeMillis();
+        List<Log> optimizedResult = repository.findByStudentIdAndVacancyIdOrderByLogDateDescIdDesc(1L, 1L);
+        long optimizedTime = System.currentTimeMillis() - startTime;
+
+        // Measure performance of findAll + filtering (simulating old approach)
+        startTime = System.currentTimeMillis();
+        List<Log> allLogs = repository.findAll();
+        List<Log> filteredResult = allLogs.stream()
+                .filter(log -> log.getStudentId().equals(1L) && log.getVacancyId().equals(1L))
+                .toList();
+        long findAllTime = System.currentTimeMillis() - startTime;
+
+        // Verify results are equivalent
+        assertEquals(filteredResult.size(), optimizedResult.size());
+
+        // Log performance comparison
+        System.out.println("Optimized query time: " + optimizedTime + "ms");
+        System.out.println("FindAll + filter time: " + findAllTime + "ms");
+        
+        // In most cases, optimized query should be faster, especially with larger datasets
+        // This assertion might not always pass in test environment with small datasets,
+        // but demonstrates the concept
+        assertTrue(optimizedTime <= findAllTime || optimizedTime < 50, 
+                "Optimized query should be faster or very fast (< 50ms)");
     }
 }

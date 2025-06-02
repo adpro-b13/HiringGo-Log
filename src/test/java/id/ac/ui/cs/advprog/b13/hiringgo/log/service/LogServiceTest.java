@@ -229,19 +229,16 @@ class LogServiceTest {
 
     @Test
     void happy_getAllLogsStudent_returnsFilteredLogsForStudentAndVacancy() {
-        Long studentId = 123L; // Changed to Long
+        Long studentId = 123L;
         Long targetVacancyId = 1L; 
 
         Log log1 = new Log("T1", "D1", "C", targetVacancyId, LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), studentId);
         log1.setId(1L);
-        Log log2 = new Log("T2", "D2", "C", 2L, LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now(), studentId); 
-        log2.setId(2L);
-        Log log3 = new Log("T3", "D3", "C", targetVacancyId, LocalDateTime.now(), LocalDateTime.now().plusHours(3), LocalDate.now(), 456L); // Different student (Long)
-        log3.setId(3L);
 
-        when(repository.findAll()).thenReturn(List.of(log1, log2, log3));
+        when(repository.findByStudentIdAndVacancyIdOrderByLogDateDescIdDesc(studentId, targetVacancyId))
+                .thenReturn(List.of(log1));
 
-        CompletableFuture<List<Log>> futureResult = logService.getAllLogsStudent(studentId, targetVacancyId); // Pass studentId
+        CompletableFuture<List<Log>> futureResult = logService.getAllLogsStudent(studentId, targetVacancyId);
         List<Log> result = futureResult.join();
 
         assertEquals(1, result.size());
@@ -249,49 +246,40 @@ class LogServiceTest {
         assertEquals(targetVacancyId, result.get(0).getVacancyId());
         assertEquals(log1.getId(), result.get(0).getId());
 
-        // verify(userService).getCurrentStudentId(); // Removed verification
-        verify(repository).findAll();
+        verify(repository).findByStudentIdAndVacancyIdOrderByLogDateDescIdDesc(studentId, targetVacancyId);
+        verify(repository, never()).findAll(); // Ensure findAll is not called
     }
 
     @Test
     void happy_getAllLogsStudent_returnsEmptyListWhenNoMatchingLogs() {
-        Long studentId = 123L; // Changed to Long
+        Long studentId = 123L;
         Long targetVacancyId = 999L; 
 
-        Log log1 = new Log("T1", "D1", "C", 1L, LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), studentId); 
-        log1.setId(1L);
+        when(repository.findByStudentIdAndVacancyIdOrderByLogDateDescIdDesc(studentId, targetVacancyId))
+                .thenReturn(List.of());
 
-        when(repository.findAll()).thenReturn(List.of(log1)); 
-
-        CompletableFuture<List<Log>> futureResult = logService.getAllLogsStudent(studentId, targetVacancyId); // Pass studentId
+        CompletableFuture<List<Log>> futureResult = logService.getAllLogsStudent(studentId, targetVacancyId);
         List<Log> result = futureResult.join();
 
         assertTrue(result.isEmpty());
-        // verify(userService).getCurrentStudentId(); // Removed verification
-        verify(repository).findAll();
+        verify(repository).findByStudentIdAndVacancyIdOrderByLogDateDescIdDesc(studentId, targetVacancyId);
+        verify(repository, never()).findAll(); // Ensure findAll is not called
     }
 
     @Test
     void happy_getAllLogsLecturer_returnsFilteredLogsForLecturerAndReportedStatus() {
         Long targetVacancyId = 1L; 
 
-        Log log1 = new Log("T1", "D1", "C", targetVacancyId, LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 1L); // studentId as Long
+        Log log1 = new Log("T1", "D1", "C", targetVacancyId, LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 1L);
         log1.setId(1L);
         log1.setStatus(LogStatus.REPORTED); 
 
-        Log log2 = new Log("T2", "D2", "C", targetVacancyId, LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now(), 2L); // studentId as Long
-        log2.setId(2L);
-        log2.setStatus(LogStatus.ACCEPTED); 
-
-        Log log3 = new Log("T3", "D3", "C", 2L, LocalDateTime.now(), LocalDateTime.now().plusHours(3), LocalDate.now(), 3L);  // studentId as Long
-        log3.setId(3L);
-        log3.setStatus(LogStatus.REPORTED); 
-
-        Log log4 = new Log("T4", "D4", "C", targetVacancyId, LocalDateTime.now(), LocalDateTime.now().plusHours(4), LocalDate.now(), 4L); // studentId as Long
+        Log log4 = new Log("T4", "D4", "C", targetVacancyId, LocalDateTime.now(), LocalDateTime.now().plusHours(4), LocalDate.now(), 4L);
         log4.setId(4L);
         log4.setStatus(LogStatus.REPORTED); 
 
-        when(repository.findAll()).thenReturn(List.of(log1, log2, log3, log4));
+        when(repository.findByVacancyIdAndStatusOrderByLogDateDescIdDesc(targetVacancyId, LogStatus.REPORTED))
+                .thenReturn(List.of(log1, log4));
 
         CompletableFuture<List<Log>> futureResult = logService.getAllLogsLecturer(targetVacancyId);
         List<Log> result = futureResult.join();
@@ -301,48 +289,49 @@ class LogServiceTest {
         assertTrue(result.contains(log1));
         assertTrue(result.contains(log4));
 
-        verify(repository).findAll();
-        // verifyNoInteractions(userService); // userService is removed, so this is no longer needed
+        verify(repository).findByVacancyIdAndStatusOrderByLogDateDescIdDesc(targetVacancyId, LogStatus.REPORTED);
+        verify(repository, never()).findAll(); // Ensure findAll is not called
     }
 
     @Test
     void happy_getAllLogsLecturer_returnsEmptyListWhenNoLogsMatchVacancyId() {
         Long targetVacancyId = 999L; 
 
-        Log log1 = new Log("T1", "D1", "C", 1L, LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 1L); // studentId as Long
-        log1.setId(1L);
-        log1.setStatus(LogStatus.REPORTED);
-
-        when(repository.findAll()).thenReturn(List.of(log1));
+        when(repository.findByVacancyIdAndStatusOrderByLogDateDescIdDesc(targetVacancyId, LogStatus.REPORTED))
+                .thenReturn(List.of());
 
         CompletableFuture<List<Log>> futureResult = logService.getAllLogsLecturer(targetVacancyId);
         List<Log> result = futureResult.join();
 
         assertTrue(result.isEmpty());
-        verify(repository).findAll();
+        verify(repository).findByVacancyIdAndStatusOrderByLogDateDescIdDesc(targetVacancyId, LogStatus.REPORTED);
+        verify(repository, never()).findAll(); // Ensure findAll is not called
     }
 
     @Test
     void happy_getAllLogsLecturer_returnsEmptyListWhenLogsExistForVacancyButNotReportedStatus() {
         Long targetVacancyId = 1L; 
 
-        Log log1 = new Log("T1", "D1", "C", targetVacancyId, LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 1L); // studentId as Long
+        // Setup logs with non-REPORTED status for the target vacancy
+        Log log1 = new Log("T1", "D1", "C", targetVacancyId, LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 1L);
         log1.setId(1L);
         log1.setStatus(LogStatus.ACCEPTED); 
 
-        Log log2 = new Log("T2", "D2", "C", targetVacancyId, LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now(), 2L); // studentId as Long
+        Log log2 = new Log("T2", "D2", "C", targetVacancyId, LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now(), 2L);
         log2.setId(2L);
         log2.setStatus(LogStatus.REJECTED); 
 
-        when(repository.findAll()).thenReturn(List.of(log1, log2));
+        // Mock the actual method called by the service - should return empty since no REPORTED logs
+        when(repository.findByVacancyIdAndStatusOrderByLogDateDescIdDesc(targetVacancyId, LogStatus.REPORTED))
+                .thenReturn(List.of());
 
         CompletableFuture<List<Log>> futureResult = logService.getAllLogsLecturer(targetVacancyId);
         List<Log> result = futureResult.join();
 
         assertTrue(result.isEmpty());
-        verify(repository).findAll();
+        verify(repository).findByVacancyIdAndStatusOrderByLogDateDescIdDesc(targetVacancyId, LogStatus.REPORTED);
+        verify(repository, never()).findAll(); // Ensure findAll is not called
     }
-
 
     @Test
     void happy_addMessageToLogShouldSucceedForOwner() {
