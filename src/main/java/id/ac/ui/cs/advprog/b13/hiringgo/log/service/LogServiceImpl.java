@@ -189,32 +189,50 @@ public class LogServiceImpl implements LogService {
 
     @Async
     @Override
-    public CompletableFuture<List<Log>> getAllLogsStudent(Long studentId, Long vacancyId) { // Changed String to Long
-        // Assuming vacancyId is validated (not null) by the controller via @RequestParam
-        // and potentially other validation annotations.
-        // studentId is now passed as a parameter.
+    public CompletableFuture<List<Log>> getAllLogsStudent(Long studentId, Long vacancyId) {
         return CompletableFuture.supplyAsync(() -> {
-            // Log assuming vacancyId is non-null as per controller validation.
+            long startTime = System.currentTimeMillis();
             logger.info("Fetching logs for student ID: {} and specific vacancy ID: {}", studentId, vacancyId);
-            List<Log> logs = logRepository.findAll().stream()
-                    .filter(logObject -> studentId.equals(logObject.getStudentId()))
-                    .filter(logObject -> vacancyId.equals(logObject.getVacancyId())) // Filter by the specific vacancyId
-                    .collect(Collectors.toList());
-            logger.info("Found {} logs for student ID: {} and vacancy ID: {}", logs.size(), studentId, vacancyId);
+            
+            // Use optimized repository method instead of findAll() + filtering
+            List<Log> logs = logRepository.findByStudentIdAndVacancyIdOrderByLogDateDescIdDesc(studentId, vacancyId);
+            
+            long endTime = System.currentTimeMillis();
+            long duration = endTime - startTime;
+            logger.info("Found {} logs for student ID: {} and vacancy ID: {} in {}ms", 
+                       logs.size(), studentId, vacancyId, duration);
+            
+            // Log performance warning if query takes too long
+            if (duration > 1000) {
+                logger.warn("Slow query detected: getAllLogsStudent took {}ms for studentId={}, vacancyId={}", 
+                           duration, studentId, vacancyId);
+            }
+            
             return logs;
         });
     }
 
     @Async
     @Override
-    public CompletableFuture<List<Log>> getAllLogsLecturer(Long vacancyId) { // Changed String to Long
+    public CompletableFuture<List<Log>> getAllLogsLecturer(Long vacancyId) {
         return CompletableFuture.supplyAsync(() -> {
+            long startTime = System.currentTimeMillis();
             logger.info("Fetching logs for lecturer for vacancy ID: {} with status REPORTED", vacancyId);
-            List<Log> logs = logRepository.findAll().stream()
-                    .filter(logObject -> vacancyId.equals(logObject.getVacancyId())) // Compare Long
-                    .filter(logObject -> logObject.getStatus() == LogStatus.REPORTED)
-                    .collect(Collectors.toList());
-            logger.info("Found {} logs for lecturer for vacancy ID: {} with status REPORTED", logs.size(), vacancyId);
+            
+            // Use optimized repository method instead of findAll() + filtering
+            List<Log> logs = logRepository.findByVacancyIdAndStatusOrderByLogDateDescIdDesc(vacancyId, LogStatus.REPORTED);
+            
+            long endTime = System.currentTimeMillis();
+            long duration = endTime - startTime;
+            logger.info("Found {} logs for lecturer for vacancy ID: {} with status REPORTED in {}ms", 
+                       logs.size(), vacancyId, duration);
+            
+            // Log performance warning if query takes too long
+            if (duration > 1000) {
+                logger.warn("Slow query detected: getAllLogsLecturer took {}ms for vacancyId={}", 
+                           duration, vacancyId);
+            }
+            
             return logs;
         });
     }
