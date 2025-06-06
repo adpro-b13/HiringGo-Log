@@ -15,15 +15,18 @@ on:
       db_pass:
         description: "Database password"
         required: true
-#  push:
-#    branches:
-#      - "**"
+      enable_rollback_backup:
+        description: "Create rollback backup"
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
+      image-tag: ${{ steps.extract-tag.outputs.image-tag }}
+      commit-sha: ${{ steps.extract-tag.outputs.commit-sha }}
     
     steps:
       - name: Checkout code
@@ -45,7 +48,7 @@ jobs:
           images: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
+            type=sha,prefix=sha-
             type=raw,value=latest
 
       - name: Build and push Docker image
@@ -57,6 +60,15 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Extract deployment info
+        id: extract-tag
+        run: |
+          IMAGE_TAG="${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest"
+          COMMIT_SHA="${{ github.sha }}"
+          echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "commit-sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          echo "Deploying: $IMAGE_TAG (commit: $COMMIT_SHA)"
 
   deploy:
     needs: build-and-push
@@ -70,14 +82,39 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            # Stop and remove existing container
-            docker stop hiringgo || true
-            docker rm hiringgo || true
+            set -e
+            
+            echo "Starting deployment process..."
+            echo "Image to deploy: ${{ needs.build-and-push.outputs.image-tag }}"
+            echo "Commit SHA: ${{ needs.build-and-push.outputs.commit-sha }}"
+            
+            # Create rollback backup if enabled
+            if [ "${{ github.event.inputs.enable_rollback_backup }}" = "true" ]; then
+              if docker ps -q -f name=hiringgo | grep -q .; then
+                echo "Creating rollback backup..."
+                BACKUP_TAG="rollback-$(date +%Y%m%d-%H%M%S)"
+                docker commit hiringgo "${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:$BACKUP_TAG"
+                echo "Backup created: $BACKUP_TAG"
+              fi
+            fi
+            
+            # Stop and remove existing container gracefully
+            if docker ps -q -f name=hiringgo | grep -q .; then
+              echo "Stopping existing container..."
+              docker stop hiringgo
+            fi
+            
+            if docker ps -aq -f name=hiringgo | grep -q .; then
+              echo "Removing existing container..."
+              docker rm hiringgo
+            fi
             
             # Pull the latest image from Docker Hub
+            echo "Pulling latest image..."
             docker pull ${{ needs.build-and-push.outputs.image-tag }}
             
-            # Run the new container
+            # Run the new container with proper error handling
+            echo "Starting new container..."
             docker run -d --name hiringgo \
               --restart unless-stopped \
               --add-host=host.docker.internal:host-gateway \
@@ -85,12 +122,46 @@ jobs:
               -e SPRING_DATASOURCE_USERNAME="${{ github.event.inputs.db_user }}" \
               -e SPRING_DATASOURCE_PASSWORD="${{ github.event.inputs.db_pass }}" \
               -e SPRING_PROFILES_ACTIVE=prod \
+              -e DEPLOYMENT_COMMIT_SHA="${{ needs.build-and-push.outputs.commit-sha }}" \
+              -e LOGGING_LEVEL_ID_AC_UI_CS_ADVPROG_B13_HIRINGGO_LOG=INFO \
               -p 8080:8080 \
               ${{ needs.build-and-push.outputs.image-tag }}
             
-            # Verify deployment
-            sleep 10
-            docker logs hiringgo --tail 20
+            # Health check with automatic rollback on failure
+            echo "Performing health checks..."
+            HEALTH_CHECK_PASSED=false
             
-            # Health check
-            curl -f http://localhost:8080/actuator/health || echo "Health check failed"
+            for i in {1..6}; do
+              sleep 10
+              if curl -f http://localhost:8080/actuator/health; then
+                echo "Health check passed!"
+                HEALTH_CHECK_PASSED=true
+                break
+              else
+                echo "Health check attempt $i/6 failed..."
+              fi
+            done
+            
+            if [ "$HEALTH_CHECK_PASSED" = "false" ]; then
+              echo "ERROR: Deployment failed health checks"
+              docker logs hiringgo --tail 50
+              
+              # Auto-rollback if backup exists
+              if [ "${{ github.event.inputs.enable_rollback_backup }}" = "true" ]; then
+                echo "Attempting automatic rollback..."
+                docker stop hiringgo || true
+                docker rm hiringgo || true
+                
+                # Find latest backup
+                LATEST_BACKUP=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep rollback | head -1 | tr -d ' ')
+                if [ -n "$LATEST_BACKUP" ]; then
+                  echo "Rolling back to: $LATEST_BACKUP"
+                  docker run -d --name hiringgo --restart unless-stopped -p 8080:8080 "$LATEST_BACKUP"
+                  echo "Rollback completed"
+                fi
+              fi
+              exit 1
+            fi
+            
+            echo "Deployment completed successfully!"
+            docker ps | grep hiringgo

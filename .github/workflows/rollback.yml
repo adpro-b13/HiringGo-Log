@@ -1,0 +1,83 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      host_dns:
+        description: "Public DNS or IP"
+        required: true
+      target_version:
+        description: "Version to rollback to (e.g., sha-abc123, v1.0.0)"
+        required: true
+      db_url:
+        description: "Database JDBC URL"
+        required: true
+      db_user:
+        description: "Database user"
+        required: true
+      db_pass:
+        description: "Database password"
+        required: true
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: SSH into EC2 and rollback container
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ github.event.inputs.host_dns }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+            
+            echo "Starting rollback process..."
+            echo "Target version: ${{ github.event.inputs.target_version }}"
+            
+            # Construct rollback image tag
+            ROLLBACK_IMAGE="${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:${{ github.event.inputs.target_version }}"
+            
+            # Verify target image exists
+            if ! docker pull "$ROLLBACK_IMAGE"; then
+              echo "ERROR: Rollback image $ROLLBACK_IMAGE not found"
+              exit 1
+            fi
+            
+            # Create backup of current container
+            if docker ps -q -f name=hiringgo | grep -q .; then
+              echo "Creating backup of current deployment..."
+              docker commit hiringgo "hiringgo-backup-$(date +%Y%m%d-%H%M%S)"
+              docker stop hiringgo
+              docker rm hiringgo
+            fi
+            
+            # Deploy rollback version
+            echo "Deploying rollback version..."
+            docker run -d --name hiringgo \
+              --restart unless-stopped \
+              -e SPRING_DATASOURCE_URL="${{ github.event.inputs.db_url }}" \
+              -e SPRING_DATASOURCE_USERNAME="${{ github.event.inputs.db_user }}" \
+              -e SPRING_DATASOURCE_PASSWORD="${{ github.event.inputs.db_pass }}" \
+              -e SPRING_PROFILES_ACTIVE=prod \
+              -p 8080:8080 \
+              "$ROLLBACK_IMAGE"
+            
+            # Health check for rollback
+            sleep 15
+            for i in {1..6}; do
+              if curl -f http://localhost:8080/actuator/health; then
+                echo "Rollback successful! Health check passed."
+                break
+              else
+                echo "Rollback health check attempt $i/6 failed..."
+                if [ $i -eq 6 ]; then
+                  echo "ERROR: Rollback failed health checks"
+                  exit 1
+                fi
+                sleep 10
+              fi
+            done
+            
+            echo "Rollback completed successfully to version: ${{ github.event.inputs.target_version }}"
