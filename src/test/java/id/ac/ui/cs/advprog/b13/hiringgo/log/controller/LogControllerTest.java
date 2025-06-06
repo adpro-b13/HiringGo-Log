@@ -116,19 +116,22 @@ class LogControllerTest {
 
     @Test
     void createLog_success() throws Exception {
-        Long vacancyId = 1L; // Define a sample vacancyId
-        // studentId will be set from token, vacancyId will be set from path
+        Long vacancyId = 1L;
         Log logPayload = createSampleLogEntity(null, null);
 
-        mockMvc.perform(post("/logs/{vacancyId}", vacancyId) // Corrected path
+        mockMvc.perform(post("/logs/{vacancyId}", vacancyId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)
                         .content(objectMapper.writeValueAsString(logPayload)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.title", is(logPayload.getTitle())))
-                .andExpect(jsonPath("$.studentId", is(6))) // Assuming token for userId 6 resolves to 6L
-                .andExpect(jsonPath("$.vacancyId", is(vacancyId.intValue()))) // Added check for vacancyId
-                .andExpect(jsonPath("$.status", is(LogStatus.REPORTED.name())));
+                .andExpect(request().asyncStarted()) // Add async assertion
+                .andDo(result -> {
+                    mockMvc.perform(asyncDispatch(result))
+                            .andExpect(status().isCreated())
+                            .andExpect(jsonPath("$.title", is(logPayload.getTitle())))
+                            .andExpect(jsonPath("$.studentId", is(6)))
+                            .andExpect(jsonPath("$.vacancyId", is(vacancyId.intValue())))
+                            .andExpect(jsonPath("$.status", is(LogStatus.REPORTED.name())));
+                });
     }
 
     @Test
@@ -177,18 +180,21 @@ class LogControllerTest {
 
     @Test
     void createLog_validationError_blankTitle() throws Exception {
-        Long vacancyId = 1L; // Define a sample vacancyId
-        Log logPayload = createSampleLogEntity(null, null); // studentId from token, vacancyId from path
-        logPayload.setTitle(""); // Invalid title
+        Long vacancyId = 1L;
+        Log logPayload = createSampleLogEntity(null, null);
+        logPayload.setTitle("");
 
         mockMvc.perform(post("/logs/{vacancyId}", vacancyId)
-                        .contentType(MediaType.APPLICATION_JSON) // This is the request's content type
+                        .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)
                         .content(objectMapper.writeValueAsString(logPayload)))
-                .andExpect(status().isBadRequest())
-                // Corrected expectations for text/plain response:
-                .andExpect(content().contentType("text/plain;charset=UTF-8"))
-                .andExpect(content().string("Judul log tidak boleh kosong.")); // Expect the raw string
+                .andExpect(request().asyncStarted())
+                .andDo(result -> {
+                    mockMvc.perform(asyncDispatch(result))
+                            .andExpect(status().isBadRequest())
+                            .andExpect(content().contentType("text/plain;charset=UTF-8"))
+                            .andExpect(content().string("Judul log tidak boleh kosong."));
+                });
     }
 
     @Test
@@ -405,10 +411,14 @@ class LogControllerTest {
         mockMvc.perform(get("/logs/student") 
                         .param("vacancyId", "1")
                         .header("Authorization", MAHASISWA_TOKEN_USER_ID_6))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].studentId", is(6)))
-                .andExpect(jsonPath("$[0].vacancyId", is(1)));
+                .andExpect(request().asyncStarted())
+                .andDo(result -> {
+                    mockMvc.perform(asyncDispatch(result))
+                            .andExpect(status().isOk())
+                            .andExpect(jsonPath("$", hasSize(1)))
+                            .andExpect(jsonPath("$[0].studentId", is(6)))
+                            .andExpect(jsonPath("$[0].vacancyId", is(1)));
+                });
     }
     
     @Test
@@ -436,11 +446,15 @@ class LogControllerTest {
         mockMvc.perform(get("/logs/lecturer")
                         .param("vacancyId", "1")
                         .header("Authorization", LECTURER_TOKEN_USER_ID_4))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].vacancyId", is(1)))
-                .andExpect(jsonPath("$[0].status", is(LogStatus.REPORTED.name())))
-                .andExpect(jsonPath("$[0].studentId", is(6)));
+                .andExpect(request().asyncStarted())
+                .andDo(result -> {
+                    mockMvc.perform(asyncDispatch(result))
+                            .andExpect(status().isOk())
+                            .andExpect(jsonPath("$", hasSize(1)))
+                            .andExpect(jsonPath("$[0].vacancyId", is(1)))
+                            .andExpect(jsonPath("$[0].status", is(LogStatus.REPORTED.name())))
+                            .andExpect(jsonPath("$[0].studentId", is(6)));
+                });
     }
     
     @Test

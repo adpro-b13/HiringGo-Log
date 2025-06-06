@@ -2,14 +2,13 @@ package id.ac.ui.cs.advprog.b13.hiringgo.log;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.ComponentScan; // Import @ComponentScan
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.context.annotation.Configuration;
 
 @SpringBootApplication
-// Explicitly define the base packages to scan.
-// This is generally covered by @SpringBootApplication if LogServiceApplication
-// is in a parent package of your components, but adding it explicitly can
-// resolve or highlight configuration issues.
 @ComponentScan(basePackages = {"id.ac.ui.cs.advprog.b13.hiringgo.log"})
 @EnableAsync
 public class LogServiceApplication {
@@ -18,4 +17,11 @@ public class LogServiceApplication {
         SpringApplication.run(LogServiceApplication.class, args);
     }
 
+    @Configuration
+    public static class WebConfig implements WebMvcConfigurer {
+        @Override
+        public void configureAsyncSupport(AsyncSupportConfigurer configurer) {
+            configurer.setDefaultTimeout(30000); // 30 seconds timeout
+        }
+    }
 }

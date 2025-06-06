@@ -4,7 +4,7 @@ import id.ac.ui.cs.advprog.b13.hiringgo.log.model.Log;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.state.VerificationAction;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.service.LogService;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.validator.LogValidationException;
-import id.ac.ui.cs.advprog.b13.hiringgo.log.dto.MessageRequest; // Added import
+import id.ac.ui.cs.advprog.b13.hiringgo.log.dto.MessageRequest;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -20,6 +20,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/logs")
@@ -60,25 +61,38 @@ public class LogController {
     // Endpoint for Mahasiswa to create a log
     @PostMapping("/{vacancyId}")
     @PreAuthorize("hasRole('MAHASISWA')")
-    public ResponseEntity<Object> createLog(@PathVariable Long vacancyId, @Valid @RequestBody Log log, BindingResult bindingResult) {
+    public CompletableFuture<ResponseEntity<Object>> createLog(@PathVariable Long vacancyId, @Valid @RequestBody Log log, BindingResult bindingResult) {
         logger.info("Received request to create log for vacancyId {}: {}", vacancyId, log.getTitle());
         if (bindingResult.hasErrors()) {
             List<String> errors = bindingResult.getAllErrors().stream()
                                                .map(e -> e.getDefaultMessage())
                                                .toList();
             logger.warn("Validation errors when creating log: {}", errors);
-            return ResponseEntity.badRequest().body(errors);
+            return CompletableFuture.completedFuture(ResponseEntity.badRequest().body(errors));
         }
+        
         try {
-            Long studentId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal(); // Cast to Long
-            log.setStudentId(studentId); // Set studentId from authenticated user
-            log.setVacancyId(vacancyId); // Set vacancyId from path variable
-            Log saved = logService.createLog(log).join(); // Await the async result
-            logger.info("Log created with ID: {} for vacancyId: {}", saved.getId(), vacancyId);
-            return ResponseEntity.created(URI.create("/logs/" + saved.getId())).body(saved);
+            Long studentId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            log.setStudentId(studentId);
+            log.setVacancyId(vacancyId);
+            
+            return logService.createLog(log)
+                .<ResponseEntity<Object>>thenApply(saved -> {
+                    logger.info("Log created with ID: {} for vacancyId: {}", saved.getId(), vacancyId);
+                    return ResponseEntity.created(URI.create("/logs/" + saved.getId())).body(saved);
+                })
+                .exceptionally(throwable -> {
+                    if (throwable.getCause() instanceof LogValidationException) {
+                        LogValidationException e = (LogValidationException) throwable.getCause();
+                        logger.warn("Log validation exception when creating log: {}", e.getMessage());
+                        return ResponseEntity.badRequest().body(e.getMessage());
+                    }
+                    logger.error("Unexpected error creating log: {}", throwable.getMessage());
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred while creating the log.");
+                });
         } catch (LogValidationException e) {
             logger.warn("Log validation exception when creating log: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return CompletableFuture.completedFuture(ResponseEntity.badRequest().body(e.getMessage()));
         }
     }
 
@@ -147,26 +161,30 @@ public class LogController {
 
 
     // Endpoint to list all logs for a student, optionally filtered by vacancyId
-    @GetMapping("/student") // Changed mapping to avoid ambiguity
+    @GetMapping("/student")
     @PreAuthorize("hasRole('MAHASISWA')")
-    public ResponseEntity<List<Log>> getAllLogsStudent(@RequestParam Long vacancyId) { // Changed String to Long
+    public CompletableFuture<ResponseEntity<List<Log>>> getAllLogsStudent(@RequestParam Long vacancyId) {
         Long studentId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        // The service could take studentId to filter logs for the authenticated student.
-        // For now, assuming service getAllLogsStudent(vacancyId) might implicitly use student context or needs update
         logger.info("Received request to get all logs for student {}, vacancyId: {}", studentId, vacancyId);
-        List<Log> logs = logService.getAllLogsStudent(studentId, vacancyId).join();
-        logger.info("Returning {} logs for student {}, vacancyId {}", logs.size(), studentId, vacancyId);
-        return ResponseEntity.ok(logs);
+        
+        return logService.getAllLogsStudent(studentId, vacancyId)
+            .thenApply(logs -> {
+                logger.info("Returning {} logs for student {}, vacancyId {}", logs.size(), studentId, vacancyId);
+                return ResponseEntity.ok(logs);
+            });
     }
 
     // Endpoint to list all logs for a lecturer, filtered by vacancyId and status REPORTED
     @GetMapping("/lecturer")
     @PreAuthorize("hasRole('DOSEN')")
-    public ResponseEntity<List<Log>> getAllLogsLecturer(@RequestParam Long vacancyId) { // Changed String to Long
+    public CompletableFuture<ResponseEntity<List<Log>>> getAllLogsLecturer(@RequestParam Long vacancyId) {
         logger.info("Received request to get all logs for lecturer, vacancyId: {}", vacancyId);
-        List<Log> logs = logService.getAllLogsLecturer(vacancyId).join();
-        logger.info("Returning {} logs for lecturer for vacancyId {}", logs.size(), vacancyId);
-        return ResponseEntity.ok(logs);
+        
+        return logService.getAllLogsLecturer(vacancyId)
+            .thenApply(logs -> {
+                logger.info("Returning {} logs for lecturer for vacancyId {}", logs.size(), vacancyId);
+                return ResponseEntity.ok(logs);
+            });
     }
 
     // Endpoint for Mahasiswa to add a message to a log

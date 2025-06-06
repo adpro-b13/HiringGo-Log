@@ -16,6 +16,7 @@ import org.springframework.security.core.context.SecurityContext; // Added impor
 import org.springframework.security.core.context.SecurityContextHolder; // Added import
 import org.junit.jupiter.api.AfterEach; // Added import
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -71,17 +72,20 @@ class LogServiceTest {
     @Test
     void happy_createLogShouldPersistValidLog() {
         Log log = new Log("Valid Log", "Proper log", "Asistensi", 1L, 
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 11L); // Added Long studentId
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), 11L);
 
         doNothing().when(validator).validate(log);
         when(repository.save(log)).thenReturn(log);
 
         CompletableFuture<Log> futureResult = logService.createLog(log);
-        Log result = futureResult.join(); // or .get()
         
-        assertEquals(LogStatus.REPORTED, result.getStatus());
-        verify(validator).validate(log);
-        verify(repository).save(log);
+        // Use assertTimeout to ensure async completion within reasonable time
+        assertTimeout(Duration.ofSeconds(5), () -> {
+            Log result = futureResult.join();
+            assertEquals(LogStatus.REPORTED, result.getStatus());
+            verify(validator).validate(log);
+            verify(repository).save(log);
+        });
     }
 
     @Test
@@ -239,15 +243,16 @@ class LogServiceTest {
                 .thenReturn(List.of(log1));
 
         CompletableFuture<List<Log>> futureResult = logService.getAllLogsStudent(studentId, targetVacancyId);
-        List<Log> result = futureResult.join();
-
-        assertEquals(1, result.size());
-        assertEquals(studentId, result.get(0).getStudentId());
-        assertEquals(targetVacancyId, result.get(0).getVacancyId());
-        assertEquals(log1.getId(), result.get(0).getId());
-
-        verify(repository).findByStudentIdAndVacancyIdOrderByLogDateDescIdDesc(studentId, targetVacancyId);
-        verify(repository, never()).findAll(); // Ensure findAll is not called
+        
+        assertTimeout(Duration.ofSeconds(5), () -> {
+            List<Log> result = futureResult.join();
+            assertEquals(1, result.size());
+            assertEquals(studentId, result.get(0).getStudentId());
+            assertEquals(targetVacancyId, result.get(0).getVacancyId());
+            assertEquals(log1.getId(), result.get(0).getId());
+            verify(repository).findByStudentIdAndVacancyIdOrderByLogDateDescIdDesc(studentId, targetVacancyId);
+            verify(repository, never()).findAll();
+        });
     }
 
     @Test
@@ -282,15 +287,16 @@ class LogServiceTest {
                 .thenReturn(List.of(log1, log4));
 
         CompletableFuture<List<Log>> futureResult = logService.getAllLogsLecturer(targetVacancyId);
-        List<Log> result = futureResult.join();
-
-        assertEquals(2, result.size());
-        assertTrue(result.stream().allMatch(log -> log.getVacancyId().equals(targetVacancyId) && log.getStatus() == LogStatus.REPORTED));
-        assertTrue(result.contains(log1));
-        assertTrue(result.contains(log4));
-
-        verify(repository).findByVacancyIdAndStatusOrderByLogDateDescIdDesc(targetVacancyId, LogStatus.REPORTED);
-        verify(repository, never()).findAll(); // Ensure findAll is not called
+        
+        assertTimeout(Duration.ofSeconds(5), () -> {
+            List<Log> result = futureResult.join();
+            assertEquals(2, result.size());
+            assertTrue(result.stream().allMatch(log -> log.getVacancyId().equals(targetVacancyId) && log.getStatus() == LogStatus.REPORTED));
+            assertTrue(result.contains(log1));
+            assertTrue(result.contains(log4));
+            verify(repository).findByVacancyIdAndStatusOrderByLogDateDescIdDesc(targetVacancyId, LogStatus.REPORTED);
+            verify(repository, never()).findAll();
+        });
     }
 
     @Test
