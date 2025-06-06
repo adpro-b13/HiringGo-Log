@@ -58,7 +58,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -69,12 +69,6 @@ jobs:
           set -e # Exit immediately if a command exits with a non-zero status.
 
           echo "Starting extract-tag step..."
-          echo "Attempting to access meta.outputs.json (first 100 chars): '$(echo "${{ steps.meta.outputs.json }}" | cut -c 1-100)...'"
-
-          if [ -z "${{ steps.meta.outputs.json }}" ]; then
-            echo "ERROR: steps.meta.outputs.json is empty. Cannot extract tags."
-            exit 1
-          fi
 
           # Validate that Docker Hub secrets appear to be non-empty.
           if [ -z "${{ secrets.DOCKER_HUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKER_HUB_REPO_NAME }}" ]; then
@@ -96,19 +90,16 @@ jobs:
           fi
           echo "REGISTRY_URL determined as: '$REGISTRY_URL'"
           
-          # Find the image tag from metadata that starts with the REGISTRY_URL and ends with ':latest'.
-          # This relies on jq being available and steps.meta.outputs.json being valid JSON.
-          IMAGE_TAG=$(echo '${{ steps.meta.outputs.json }}' | jq -r --arg reg_url "$REGISTRY_URL" '.tags[] | select(startswith($reg_url + ":") and endswith(":latest"))')
-          
-          if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" == "null" ]; then
-            echo "ERROR: Could not find the image tag based on REGISTRY_URL ('$REGISTRY_URL') and ending with ':latest' in metadata JSON."
-            echo "Searched for tags starting with '$REGISTRY_URL:' and ending with ':latest'."
-            echo "Available tags from metadata: $(echo '${{ steps.meta.outputs.json }}' | jq -r '.tags | join(", ")')"
-            # Avoid printing full JSON if it's too large or sensitive, or print selectively for debug.
-            # echo "Full metadata JSON content: ${{ steps.meta.outputs.json }}" 
+          # Construct the IMAGE_TAG directly, matching the tag used in the build-push-action.
+          IMAGE_TAG="${REGISTRY_URL}:latest"
+          echo "IMAGE_TAG constructed as: '$IMAGE_TAG'"
+
+          # Validate the constructed IMAGE_TAG.
+          if [ -z "$IMAGE_TAG" ]; then
+            # This case should ideally not be reached if REGISTRY_URL is valid and secrets are present.
+            echo "ERROR: Constructed IMAGE_TAG is empty."
             exit 1
           fi
-          echo "IMAGE_TAG determined as: '$IMAGE_TAG'"
           
           COMMIT_SHA="${{ github.sha }}"
           echo "COMMIT_SHA determined as: '$COMMIT_SHA'"
