@@ -67,37 +67,37 @@ jobs:
         id: extract-tag
         run: |
           # Validate that Docker Hub secrets appear to be non-empty.
-          # This is an initial safeguard. The primary logic below uses metadata output.
+          # This is an initial safeguard.
           if [ -z "${{ secrets.DOCKER_HUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKER_HUB_REPO_NAME }}" ]; then
             echo "ERROR: Docker Hub username or repository name secrets appear to be empty or unset."
             echo "Please ensure DOCKER_HUB_USERNAME and DOCKER_HUB_REPO_NAME secrets are correctly configured."
             exit 1
           fi
 
-          # Extract image tag and registry URL from the JSON output of the 'meta' step.
-          # This relies on 'jq' being available on the runner.
+          # The REGISTRY_URL is the base image name, formed from secrets.
+          REGISTRY_URL="${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}"
           
-          # Extract the base image name (e.g., "username/reponame") from the '.images[0]' field.
-          # This will be used as the REGISTRY_URL.
-          REGISTRY_URL=$(echo '${{ steps.meta.outputs.json }}' | jq -r '.images[0]')
-          
-          if [ -z "$REGISTRY_URL" ] || [ "$REGISTRY_URL" == "null" ] || [ "$REGISTRY_URL" == "/" ]; then
-            echo "ERROR: Could not extract a valid REGISTRY_URL from metadata JSON."
+          # Validate the constructed REGISTRY_URL.
+          # The check for "/" handles cases where secrets might be empty strings that -z doesn't catch as "unset".
+          if [ "$REGISTRY_URL" == "/" ] || [ -z "$REGISTRY_URL" ]; then
+            echo "ERROR: Constructed REGISTRY_URL is invalid (empty or just '/'). Secrets might be empty or contain unexpected values."
             echo "Attempted REGISTRY_URL: '$REGISTRY_URL'"
-            echo "Metadata JSON content: ${{ steps.meta.outputs.json }}"
+            echo "DOCKER_HUB_USERNAME: '${{ secrets.DOCKER_HUB_USERNAME }}'"
+            echo "DOCKER_HUB_REPO_NAME: '${{ secrets.DOCKER_HUB_REPO_NAME }}'"
             exit 1
           fi
 
           # Construct the expected 'latest' tag string (e.g., "username/reponame:latest").
           EXPECTED_LATEST_TAG="${REGISTRY_URL}:latest"
           
-          # Find this exact 'latest' tag within the '.tags[]' array from the metadata JSON.
+          # Find this exact 'latest' tag within the '.tags[]' array from the metadata JSON output of the 'meta' step.
           IMAGE_TAG=$(echo '${{ steps.meta.outputs.json }}' | jq -r --arg tag "$EXPECTED_LATEST_TAG" '.tags[] | select(. == $tag)')
           
           if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" == "null" ]; then
-            echo "ERROR: Could not find the expected latest tag ($EXPECTED_LATEST_TAG) in metadata JSON."
-            echo "Available tags from metadata: $(echo '${{ steps.meta.outputs.json }}' | jq -r '.tags[]')"
-            echo "Metadata JSON content: ${{ steps.meta.outputs.json }}"
+            echo "ERROR: Could not find the expected latest tag ('$EXPECTED_LATEST_TAG') in metadata JSON."
+            echo "REGISTRY_URL used for search: '$REGISTRY_URL'"
+            echo "Available tags from metadata: $(echo '${{ steps.meta.outputs.json }}' | jq -r '.tags | join(", ")')"
+            echo "Full metadata JSON content: ${{ steps.meta.outputs.json }}"
             exit 1
           fi
           
