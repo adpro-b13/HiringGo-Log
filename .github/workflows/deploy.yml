@@ -15,320 +15,49 @@ on:
       db_pass:
         description: "Database password"
         required: true
-      enable_rollback_backup:
-        description: "Create rollback backup"
-        required: false
-        default: true
-        type: boolean
+#  push:
+#    branches:
+#      - "**"
 
 jobs:
-  build-and-push:
+  deploy:
     runs-on: ubuntu-latest
-    env:
-      REGISTRY_URL: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}
-      IMAGE_TAG: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
-    outputs:
-      image-tag: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
-      commit-sha: ${{ github.sha }}
-      registry-url: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}
-      image-digest: ${{ steps.build.outputs.digest }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ---- START: ADD THIS NEW DEBUGGING STEP ----
-      - name: Debug Secrets Availability
-        run: |
-          echo "--- Starting Secrets Debug ---"
-          if [ -z "${{ secrets.DOCKER_HUB_USERNAME }}" ]; then
-            echo "ERROR: DOCKER_HUB_USERNAME secret is either not set or empty."
-            exit 1
-          else
-            echo "✅ DOCKER_HUB_USERNAME is set."
-          fi
-          
-          if [ -z "${{ secrets.DOCKER_HUB_REPO_NAME }}" ]; then
-            echo "ERROR: DOCKER_HUB_REPO_NAME secret is either not set or empty."
-            exit 1
-          else
-            echo "✅ DOCKER_HUB_REPO_NAME is set."
-          fi
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
 
-          if [ -z "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" ]; then
-            echo "ERROR: DOCKER_HUB_ACCESS_TOKEN secret is either not set or empty."
-            exit 1
-          else
-            echo "✅ DOCKER_HUB_ACCESS_TOKEN is set and has a value."
-          fi
-          echo "--- Secrets Debug Finished ---"
-      # ---- END: NEW DEBUGGING STEP ----
+      - name: Build Docker image
+        run: docker build -t hiringgo-log .
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Save Docker image to tar
+        run: docker save hiringgo-log > hiringgo-log.tar
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+      - name: Copy image to EC2
+        uses: appleboy/scp-action@master
         with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          host: ${{ github.event.inputs.host_dns }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "hiringgo-log.tar"
+          target: "~/"
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}
-
-      - name: Build and push Docker image
-        id: build
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Final State Inspection
-        id: set-outputs # We keep the id so the outputs mapping still works
-        run: |
-          echo "--- Final State Inspection ---"
-
-          echo ""
-          echo "[1] Re-checking secrets..."
-          if [ -z "${{ secrets.DOCKER_HUB_USERNAME }}" ]; then
-            echo "  ERROR: DOCKER_HUB_USERNAME is NOW EMPTY at the end of the job."
-          else
-            echo "  ✅ DOCKER_HUB_USERNAME is still set."
-          fi
-
-          echo ""
-          echo "[2] Checking the value of the 'env' variable..."
-          echo "  env.IMAGE_TAG value is: '${{ env.IMAGE_TAG }}'"
-
-          echo ""
-          echo "[3] Checking the direct output from the 'docker/build-push-action' step..."
-          echo "  The image digest from the build step is: ${{ steps.build.outputs.digest }}"
-
-          echo ""
-          echo "[4] Attempting to set the output variable one last time..."
-          FINAL_TAG_VALUE="${{ env.IMAGE_TAG }}"
-          echo "  The value being written to GITHUB_OUTPUT for 'image-tag' is: '$FINAL_TAG_VALUE'"
-          echo "image-tag=$FINAL_TAG_VALUE" >> $GITHUB_OUTPUT
-
-          # As a fallback, let's also output the digest we got from the build step
-          echo "image-digest=${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
-          
-          echo "--- End of Final State Inspection ---"
-      # ---- END: REPLACEMENT STEP ----
-
-  validate-build:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate build outputs
-        run: |
-          echo "--- Build Validation ---"
-          echo "Received Image Tag: ${{ needs.build-and-push.outputs.image-tag }}"
-          echo "Received Image Digest: ${{ needs.build-and-push.outputs.image-digest }}"
-          echo "Received Commit SHA: ${{ needs.build-and-push.outputs.commit-sha }}"
-          echo "Received Registry URL: ${{ needs.build-and-push.outputs.registry-url }}"
-          
-          if [ -z "${{ needs.build-and-push.outputs.image-tag }}" ]; then
-            echo "ERROR: Image tag is empty"
-            exit 1
-          fi
-          
-          echo "Build validation passed!"
-
-  deploy:
-    needs: [build-and-push, validate-build]
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Deploy to production environment
+      - name: SSH into EC2 and deploy container
         uses: appleboy/ssh-action@master
         with:
           host: ${{ github.event.inputs.host_dns }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            set -e  # Exit immediately on any error
-            
-            # Deployment configuration
-            CONTAINER_NAME="hiringgo"
-            IMAGE_TAG="${{ needs.build-and-push.outputs.image-tag }}"
-            COMMIT_SHA="${{ needs.build-and-push.outputs.commit-sha }}"
-            
-            echo "=== Starting Deployment Process ==="
-            echo "Container Name: $CONTAINER_NAME"
-            echo "Image to deploy: $IMAGE_TAG"
-            echo "Commit SHA: $COMMIT_SHA"
-            echo "Rollback enabled: ${{ github.event.inputs.enable_rollback_backup }}"
-            
-            # Validate required variables
-            if [ -z "$IMAGE_TAG" ]; then
-              echo "ERROR: Image tag is empty. Deployment cannot proceed."
-              exit 1
-            fi
-            
-            # Function to create rollback backup
-            create_rollback_backup() {
-              if [ "${{ github.event.inputs.enable_rollback_backup }}" = "true" ]; then
-                if docker ps -q -f name=$CONTAINER_NAME | grep -q .; then
-                  echo "Creating rollback backup..."
-                  BACKUP_TAG="rollback-$(date +%Y%m%d-%H%M%S)"
-                  docker commit $CONTAINER_NAME "${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:$BACKUP_TAG"
-                  echo "Backup created: $BACKUP_TAG"
-                  return 0
-                else
-                  echo "No existing container to backup"
-                  return 0
-                fi
-              else
-                echo "Rollback backup disabled"
-                return 0
-              fi
-            }
-            
-            # Function to stop and remove existing container
-            cleanup_existing_container() {
-              echo "Cleaning up existing container..."
-              
-              if docker ps -q -f name=$CONTAINER_NAME | grep -q .; then
-                echo "Stopping existing container: $CONTAINER_NAME"
-                docker stop $CONTAINER_NAME
-              fi
-              
-              if docker ps -aq -f name=$CONTAINER_NAME | grep -q .; then
-                echo "Removing existing container: $CONTAINER_NAME"
-                docker rm $CONTAINER_NAME
-              fi
-              
-              echo "Container cleanup completed"
-            }
-            
-            # Function to deploy new container
-            deploy_new_container() {
-              echo "Deploying new container..."
-              
-              # Pull the latest image
-              echo "Pulling image: $IMAGE_TAG"
-              docker pull "$IMAGE_TAG"
-              
-              # Verify image was pulled successfully
-              if ! docker images | grep -q "${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}"; then
-                echo "ERROR: Failed to pull image $IMAGE_TAG"
-                return 1
-              fi
-              
-              # Run the new container
-              echo "Starting new container: $CONTAINER_NAME"
-              docker run -d --name $CONTAINER_NAME \
-                --restart unless-stopped \
-                --add-host=host.docker.internal:host-gateway \
-                -e SPRING_DATASOURCE_URL="${{ github.event.inputs.db_url }}" \
-                -e SPRING_DATASOURCE_USERNAME="${{ github.event.inputs.db_user }}" \
-                -e SPRING_DATASOURCE_PASSWORD="${{ github.event.inputs.db_pass }}" \
-                -e SPRING_PROFILES_ACTIVE=prod \
-                -e DEPLOYMENT_COMMIT_SHA="$COMMIT_SHA" \
-                -e LOGGING_LEVEL_ID_AC_UI_CS_ADVPROG_B13_HIRINGGO_LOG=INFO \
-                -p 8080:8080 \
-                "$IMAGE_TAG"
-              
-              # Verify container started
-              if ! docker ps | grep -q $CONTAINER_NAME; then
-                echo "ERROR: Container failed to start"
-                docker logs $CONTAINER_NAME --tail 50
-                return 1
-              fi
-              
-              echo "Container started successfully"
-              return 0
-            }
-            
-            # Function to perform health checks
-            perform_health_check() {
-              echo "Performing health checks..."
-              local attempts=6
-              local wait_time=10
-              
-              for i in $(seq 1 $attempts); do
-                echo "Health check attempt $i/$attempts"
-                sleep $wait_time
-                
-                if curl -f http://localhost:8080/actuator/health; then
-                  echo "Health check passed!"
-                  return 0
-                else
-                  echo "Health check attempt $i/$attempts failed"
-                fi
-              done
-              
-              echo "ERROR: All health checks failed"
-              return 1
-            }
-            
-            # Function to perform automatic rollback
-            perform_rollback() {
-              if [ "${{ github.event.inputs.enable_rollback_backup }}" = "true" ]; then
-                echo "Attempting automatic rollback..."
-                
-                # Stop failed container
-                docker stop $CONTAINER_NAME || true
-                docker rm $CONTAINER_NAME || true
-                
-                # Find latest backup
-                LATEST_BACKUP=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep rollback | head -1 | awk '{print $1":"$2}')
-                
-                if [ -n "$LATEST_BACKUP" ]; then
-                  echo "Rolling back to: $LATEST_BACKUP"
-                  docker run -d --name $CONTAINER_NAME \
-                    --restart unless-stopped \
-                    -e SPRING_DATASOURCE_URL="${{ github.event.inputs.db_url }}" \
-                    -e SPRING_DATASOURCE_USERNAME="${{ github.event.inputs.db_user }}" \
-                    -e SPRING_DATASOURCE_PASSWORD="${{ github.event.inputs.db_pass }}" \
-                    -e SPRING_PROFILES_ACTIVE=prod \
-                    -p 8080:8080 \
-                    "$LATEST_BACKUP"
-                  echo "Rollback completed to: $LATEST_BACKUP"
-                else
-                  echo "WARNING: No backup image found for rollback"
-                fi
-              else
-                echo "Rollback disabled, leaving system in failed state"
-              fi
-            }
-            
-            # Main deployment flow
-            echo "=== Executing Deployment Steps ==="
-            
-            # Step 1: Create backup
-            create_rollback_backup
-            
-            # Step 2: Cleanup existing container
-            cleanup_existing_container
-            
-            # Step 3: Deploy new container
-            if ! deploy_new_container; then
-              echo "ERROR: Failed to deploy new container"
-              perform_rollback
-              exit 1
-            fi
-            
-            # Step 4: Health check
-            if ! perform_health_check; then
-              echo "ERROR: Health checks failed"
-              docker logs $CONTAINER_NAME --tail 50
-              perform_rollback
-              exit 1
-            fi
-            
-            # Step 5: Deployment success
-            echo "=== Deployment Completed Successfully ==="
-            echo "Container Status:"
-            docker ps | grep $CONTAINER_NAME
-            echo "Recent Logs:"
-            docker logs $CONTAINER_NAME --tail 10
-            echo "Deployment of commit $COMMIT_SHA completed successfully!"
+            docker load < ~/hiringgo-log.tar
+            docker stop hiringgo || true
+            docker rm hiringgo || true
+            docker run -d --name hiringgo \
+              --add-host=host.docker.internal:host-gateway \
+              -e DB_URL="${{ github.event.inputs.db_url }}" \
+              -e DB_USER="${{ github.event.inputs.db_user }}" \
+              -e DB_PASS="${{ github.event.inputs.db_pass }}" \
+              -p 8080:8080 hiringgo-log
