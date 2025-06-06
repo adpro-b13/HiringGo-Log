@@ -34,6 +34,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ---- START: ADD THIS NEW DEBUGGING STEP ----
+      - name: Debug Secrets Availability
+        run: |
+          echo "--- Starting Secrets Debug ---"
+          if [ -z "${{ secrets.DOCKER_HUB_USERNAME }}" ]; then
+            echo "ERROR: DOCKER_HUB_USERNAME secret is either not set or empty."
+            exit 1
+          else
+            echo "✅ DOCKER_HUB_USERNAME is set."
+          fi
+          
+          if [ -z "${{ secrets.DOCKER_HUB_REPO_NAME }}" ]; then
+            echo "ERROR: DOCKER_HUB_REPO_NAME secret is either not set or empty."
+            exit 1
+          else
+            echo "✅ DOCKER_HUB_REPO_NAME is set."
+          fi
+
+          if [ -z "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" ]; then
+            echo "ERROR: DOCKER_HUB_ACCESS_TOKEN secret is either not set or empty."
+            exit 1
+          else
+            echo "✅ DOCKER_HUB_ACCESS_TOKEN is set and has a value."
+          fi
+          echo "--- Secrets Debug Finished ---"
+      # ---- END: NEW DEBUGGING STEP ----
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -94,7 +121,7 @@ jobs:
   #         echo "Build validation passed!"
 
   deploy:
-    needs: [build-and-push, validate-build]
+    needs: [build-and-push]
     runs-on: ubuntu-latest
 
     steps:
