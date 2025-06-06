@@ -24,10 +24,15 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    # ---- START: Key Changes ----
+    env:
+      REGISTRY_URL: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}
+      IMAGE_TAG: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
     outputs:
-      image-tag: ${{ steps.extract-tag.outputs.image-tag }}
-      commit-sha: ${{ steps.extract-tag.outputs.commit-sha }}
-      registry-url: ${{ steps.extract-tag.outputs.registry-url }}
+      image-tag: ${{ steps.set-outputs.outputs.image-tag }}
+      commit-sha: ${{ steps.set-outputs.outputs.commit-sha }}
+      registry-url: ${{ steps.set-outputs.outputs.registry-url }}
+    # ---- END: Key Changes ----
     
     steps:
       - name: Checkout code
@@ -46,11 +51,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix=sha-
-            type=raw,value=latest
+          images: ${{ env.REGISTRY_URL }}
 
       - name: Build and push Docker image
         id: build
@@ -58,65 +59,19 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
+          # Use the environment variable directly
+          tags: ${{ env.IMAGE_TAG }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Extract deployment info
-        id: extract-tag
+      # This step is now much simpler and more reliable
+      - name: Set deployment outputs
+        id: set-outputs
         run: |
-          set -e # Exit immediately if a command exits with a non-zero status.
-
-          echo "Starting extract-tag step..."
-
-          # Validate that Docker Hub secrets appear to be non-empty.
-          if [ -z "${{ secrets.DOCKER_HUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKER_HUB_REPO_NAME }}" ]; then
-            echo "ERROR: Docker Hub username or repository name secrets appear to be empty or unset."
-            echo "Please ensure DOCKER_HUB_USERNAME and DOCKER_HUB_REPO_NAME secrets are correctly configured."
-            exit 1
-          fi
-
-          # The REGISTRY_URL is the base image name, formed from secrets.
-          REGISTRY_URL="${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}"
-          
-          # Validate the constructed REGISTRY_URL.
-          if [ "$REGISTRY_URL" == "/" ] || [ -z "$REGISTRY_URL" ]; then
-            echo "ERROR: Constructed REGISTRY_URL is invalid (empty or just '/'). Secrets might be empty or contain unexpected values."
-            echo "Attempted REGISTRY_URL: '$REGISTRY_URL'"
-            echo "DOCKER_HUB_USERNAME: '${{ secrets.DOCKER_HUB_USERNAME }}'"
-            echo "DOCKER_HUB_REPO_NAME: '${{ secrets.DOCKER_HUB_REPO_NAME }}'"
-            exit 1
-          fi
-          echo "REGISTRY_URL determined as: '$REGISTRY_URL'"
-          
-          # Construct the IMAGE_TAG directly, matching the tag used in the build-push-action.
-          IMAGE_TAG="${REGISTRY_URL}:latest"
-          echo "IMAGE_TAG constructed as: '$IMAGE_TAG'"
-
-          # Validate the constructed IMAGE_TAG.
-          if [ -z "$IMAGE_TAG" ]; then
-            # This case should ideally not be reached if REGISTRY_URL is valid and secrets are present.
-            echo "ERROR: Constructed IMAGE_TAG is empty."
-            exit 1
-          fi
-          
-          COMMIT_SHA="${{ github.sha }}"
-          echo "COMMIT_SHA determined as: '$COMMIT_SHA'"
-          
-          # Log values immediately before setting them as outputs.
-          echo "--- Preparing to set outputs ---"
-          echo "Final IMAGE_TAG for output: '$IMAGE_TAG'"
-          echo "Final REGISTRY_URL for output: '$REGISTRY_URL'"
-          echo "Final COMMIT_SHA for output: '$COMMIT_SHA'"
-          
-          echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
-          echo "commit-sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
-          echo "registry-url=$REGISTRY_URL" >> $GITHUB_OUTPUT
-          
-          echo "Outputs successfully set to GITHUB_OUTPUT."
-          echo "Build Digest (from build step, if available): ${{ steps.build.outputs.digest }}"
-          echo "extract-tag step completed successfully."
+          echo "image-tag=${{ env.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+          echo "registry-url=${{ env.REGISTRY_URL }}" >> $GITHUB_OUTPUT
+          echo "commit-sha=${{ github.sha }}" >> $GITHUB_OUTPUT
 
   validate-build:
     needs: build-and-push
