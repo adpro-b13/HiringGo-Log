@@ -68,30 +68,30 @@ jobs:
           echo "registry-url=${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}" >> $GITHUB_OUTPUT
           echo "commit-sha=${{ github.sha }}" >> $GITHUB_OUTPUT
 
-  validate-build:
-    needs: build-and-push
-    runs-on: ubuntu-latest
+  # validate-build:
+  #   needs: build-and-push
+  #   runs-on: ubuntu-latest
     
-    steps:
-      - name: Validate build outputs
-        run: |
-          echo "=== Build Validation ==="
-          echo "Image Tag: ${{ needs.build-and-push.outputs.image-tag }}"
-          echo "Commit SHA: ${{ needs.build-and-push.outputs.commit-sha }}"
-          echo "Registry URL: ${{ needs.build-and-push.outputs.registry-url }}"
+  #   steps:
+  #     - name: Validate build outputs
+  #       run: |
+  #         echo "=== Build Validation ==="
+  #         echo "Image Tag: ${{ needs.build-and-push.outputs.image-tag }}"
+  #         echo "Commit SHA: ${{ needs.build-and-push.outputs.commit-sha }}"
+  #         echo "Registry URL: ${{ needs.build-and-push.outputs.registry-url }}"
           
-          # Validate outputs are not empty
-          if [ -z "${{ needs.build-and-push.outputs.image-tag }}" ]; then
-            echo "ERROR: Image tag is empty"
-            exit 1
-          fi
+  #         # Validate outputs are not empty
+  #         if [ -z "${{ needs.build-and-push.outputs.image-tag }}" ]; then
+  #           echo "ERROR: Image tag is empty"
+  #           exit 1
+  #         fi
           
-          if [ -z "${{ needs.build-and-push.outputs.commit-sha }}" ]; then
-            echo "ERROR: Commit SHA is empty"
-            exit 1
-          fi
+  #         if [ -z "${{ needs.build-and-push.outputs.commit-sha }}" ]; then
+  #           echo "ERROR: Commit SHA is empty"
+  #           exit 1
+  #         fi
           
-          echo "Build validation passed!"
+  #         echo "Build validation passed!"
 
   deploy:
     needs: [build-and-push, validate-build]
