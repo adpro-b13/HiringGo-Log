@@ -66,8 +66,17 @@ jobs:
       - name: Extract deployment info
         id: extract-tag
         run: |
+          set -e # Exit immediately if a command exits with a non-zero status.
+
+          echo "Starting extract-tag step..."
+          echo "Attempting to access meta.outputs.json (first 100 chars): '$(echo "${{ steps.meta.outputs.json }}" | cut -c 1-100)...'"
+
+          if [ -z "${{ steps.meta.outputs.json }}" ]; then
+            echo "ERROR: steps.meta.outputs.json is empty. Cannot extract tags."
+            exit 1
+          fi
+
           # Validate that Docker Hub secrets appear to be non-empty.
-          # This is an initial safeguard.
           if [ -z "${{ secrets.DOCKER_HUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKER_HUB_REPO_NAME }}" ]; then
             echo "ERROR: Docker Hub username or repository name secrets appear to be empty or unset."
             echo "Please ensure DOCKER_HUB_USERNAME and DOCKER_HUB_REPO_NAME secrets are correctly configured."
@@ -78,7 +87,6 @@ jobs:
           REGISTRY_URL="${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}"
           
           # Validate the constructed REGISTRY_URL.
-          # The check for "/" handles cases where secrets might be empty strings that -z doesn't catch as "unset".
           if [ "$REGISTRY_URL" == "/" ] || [ -z "$REGISTRY_URL" ]; then
             echo "ERROR: Constructed REGISTRY_URL is invalid (empty or just '/'). Secrets might be empty or contain unexpected values."
             echo "Attempted REGISTRY_URL: '$REGISTRY_URL'"
@@ -86,35 +94,38 @@ jobs:
             echo "DOCKER_HUB_REPO_NAME: '${{ secrets.DOCKER_HUB_REPO_NAME }}'"
             exit 1
           fi
-
-          # Construct the expected 'latest' tag string (e.g., "username/reponame:latest").
-          EXPECTED_LATEST_TAG="${REGISTRY_URL}:latest"
+          echo "REGISTRY_URL determined as: '$REGISTRY_URL'"
           
-          # Find this exact 'latest' tag within the '.tags[]' array from the metadata JSON output of the 'meta' step.
-          IMAGE_TAG=$(echo '${{ steps.meta.outputs.json }}' | jq -r --arg tag "$EXPECTED_LATEST_TAG" '.tags[] | select(. == $tag)')
+          # Find the image tag from metadata that starts with the REGISTRY_URL and ends with ':latest'.
+          # This relies on jq being available and steps.meta.outputs.json being valid JSON.
+          IMAGE_TAG=$(echo '${{ steps.meta.outputs.json }}' | jq -r --arg reg_url "$REGISTRY_URL" '.tags[] | select(startswith($reg_url + ":") and endswith(":latest"))')
           
           if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" == "null" ]; then
-            echo "ERROR: Could not find the expected latest tag ('$EXPECTED_LATEST_TAG') in metadata JSON."
-            echo "REGISTRY_URL used for search: '$REGISTRY_URL'"
+            echo "ERROR: Could not find the image tag based on REGISTRY_URL ('$REGISTRY_URL') and ending with ':latest' in metadata JSON."
+            echo "Searched for tags starting with '$REGISTRY_URL:' and ending with ':latest'."
             echo "Available tags from metadata: $(echo '${{ steps.meta.outputs.json }}' | jq -r '.tags | join(", ")')"
-            echo "Full metadata JSON content: ${{ steps.meta.outputs.json }}"
+            # Avoid printing full JSON if it's too large or sensitive, or print selectively for debug.
+            # echo "Full metadata JSON content: ${{ steps.meta.outputs.json }}" 
             exit 1
           fi
+          echo "IMAGE_TAG determined as: '$IMAGE_TAG'"
           
-          # Get the commit SHA.
           COMMIT_SHA="${{ github.sha }}"
+          echo "COMMIT_SHA determined as: '$COMMIT_SHA'"
           
-          # Set the outputs for subsequent jobs.
+          # Log values immediately before setting them as outputs.
+          echo "--- Preparing to set outputs ---"
+          echo "Final IMAGE_TAG for output: '$IMAGE_TAG'"
+          echo "Final REGISTRY_URL for output: '$REGISTRY_URL'"
+          echo "Final COMMIT_SHA for output: '$COMMIT_SHA'"
+          
           echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "commit-sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
           echo "registry-url=$REGISTRY_URL" >> $GITHUB_OUTPUT
           
-          # Log deployment information for verification.
-          echo "=== Deployment Information (from extract-tag step) ==="
-          echo "Image Tag: $IMAGE_TAG"
-          echo "Commit SHA: $COMMIT_SHA"
-          echo "Registry URL: $REGISTRY_URL"
-          echo "Build Digest (from build step): ${{ steps.build.outputs.digest }}"
+          echo "Outputs successfully set to GITHUB_OUTPUT."
+          echo "Build Digest (from build step, if available): ${{ steps.build.outputs.digest }}"
+          echo "extract-tag step completed successfully."
 
   validate-build:
     needs: build-and-push
