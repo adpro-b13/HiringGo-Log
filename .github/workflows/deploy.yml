@@ -28,10 +28,10 @@ jobs:
       REGISTRY_URL: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}
       IMAGE_TAG: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
     outputs:
-      image-tag: ${{ steps.set-outputs.outputs.image-tag }}
-      image-digest: ${{ steps.set-outputs.outputs.image-digest }}
-      commit-sha: ${{ steps.set-outputs.outputs.commit-sha }}
-      registry-url: ${{ steps.set-outputs.outputs.registry-url }}
+      image-tag: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
+      commit-sha: ${{ github.sha }}
+      registry-url: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}
+      image-digest: ${{ steps.build.outputs.digest }}
     
     steps:
       - name: Checkout code
