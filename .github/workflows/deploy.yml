@@ -66,28 +66,55 @@ jobs:
       - name: Extract deployment info
         id: extract-tag
         run: |
-          # Extract the specific latest tag from the metadata output
-          IMAGE_TAG="${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest"
-          COMMIT_SHA="${{ github.sha }}"
-          REGISTRY_URL="${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}"
-          
-          # Validate that secrets are available
+          # Validate that Docker Hub secrets appear to be non-empty.
+          # This is an initial safeguard. The primary logic below uses metadata output.
           if [ -z "${{ secrets.DOCKER_HUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKER_HUB_REPO_NAME }}" ]; then
-            echo "ERROR: Docker Hub credentials or repository name not configured"
+            echo "ERROR: Docker Hub username or repository name secrets appear to be empty or unset."
+            echo "Please ensure DOCKER_HUB_USERNAME and DOCKER_HUB_REPO_NAME secrets are correctly configured."
+            exit 1
+          fi
+
+          # Extract image tag and registry URL from the JSON output of the 'meta' step.
+          # This relies on 'jq' being available on the runner.
+          
+          # Extract the base image name (e.g., "username/reponame") from the '.images[0]' field.
+          # This will be used as the REGISTRY_URL.
+          REGISTRY_URL=$(echo '${{ steps.meta.outputs.json }}' | jq -r '.images[0]')
+          
+          if [ -z "$REGISTRY_URL" ] || [ "$REGISTRY_URL" == "null" ] || [ "$REGISTRY_URL" == "/" ]; then
+            echo "ERROR: Could not extract a valid REGISTRY_URL from metadata JSON."
+            echo "Attempted REGISTRY_URL: '$REGISTRY_URL'"
+            echo "Metadata JSON content: ${{ steps.meta.outputs.json }}"
+            exit 1
+          fi
+
+          # Construct the expected 'latest' tag string (e.g., "username/reponame:latest").
+          EXPECTED_LATEST_TAG="${REGISTRY_URL}:latest"
+          
+          # Find this exact 'latest' tag within the '.tags[]' array from the metadata JSON.
+          IMAGE_TAG=$(echo '${{ steps.meta.outputs.json }}' | jq -r --arg tag "$EXPECTED_LATEST_TAG" '.tags[] | select(. == $tag)')
+          
+          if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" == "null" ]; then
+            echo "ERROR: Could not find the expected latest tag ($EXPECTED_LATEST_TAG) in metadata JSON."
+            echo "Available tags from metadata: $(echo '${{ steps.meta.outputs.json }}' | jq -r '.tags[]')"
+            echo "Metadata JSON content: ${{ steps.meta.outputs.json }}"
             exit 1
           fi
           
-          # Set outputs
+          # Get the commit SHA.
+          COMMIT_SHA="${{ github.sha }}"
+          
+          # Set the outputs for subsequent jobs.
           echo "image-tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "commit-sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
           echo "registry-url=$REGISTRY_URL" >> $GITHUB_OUTPUT
           
-          # Log deployment info
-          echo "=== Deployment Information ==="
+          # Log deployment information for verification.
+          echo "=== Deployment Information (from extract-tag step) ==="
           echo "Image Tag: $IMAGE_TAG"
           echo "Commit SHA: $COMMIT_SHA"
           echo "Registry URL: $REGISTRY_URL"
-          echo "Build Digest: ${{ steps.build.outputs.digest }}"
+          echo "Build Digest (from build step): ${{ steps.build.outputs.digest }}"
 
   validate-build:
     needs: build-and-push
