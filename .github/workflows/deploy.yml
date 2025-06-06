@@ -24,16 +24,16 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    # ---- START: Key Changes ----
+    # The 'env' block is no longer the primary source for the tag,
+    # but can still be used for the base image name.
     env:
       REGISTRY_URL: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}
-      IMAGE_TAG: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
     outputs:
-      image-tag: ${{ steps.set-outputs.outputs.image-tag }}
-      commit-sha: ${{ steps.set-outputs.outputs.commit-sha }}
-      registry-url: ${{ steps.set-outputs.outputs.registry-url }}
-    # ---- END: Key Changes ----
-    
+      # We will now get the tag from the 'meta' step's output
+      image-tag: ${{ steps.meta.outputs.tags }}
+      commit-sha: ${{ github.sha }} # This can stay the same
+      registry-url: ${{ env.REGISTRY_URL }} # This can stay the same
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -47,7 +47,8 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      - name: Extract metadata
+      # This step now becomes the single source of truth for your tags
+      - name: Extract metadata (and create tags)
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -59,17 +60,20 @@ jobs:
         with:
           context: .
           push: true
-          # Use the environment variable directly
-          tags: ${{ env.IMAGE_TAG }}
+          # ---- START: Key Change ----
+          # Use the tags from the metadata step
+          tags: ${{ steps.meta.outputs.tags }} 
+          # ---- END: Key Change ----
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # This step is now much simpler and more reliable
-      - name: Set deployment outputs
+      # This 'set-outputs' step is no longer needed to pass the tag,
+      # as we are now doing it directly in the job 'outputs' section above.
+      # You can remove it or modify it to only output the sha/url.
+      - name: Set commit-sha and registry-url outputs
         id: set-outputs
         run: |
-          echo "image-tag=${{ env.IMAGE_TAG }}" >> $GITHUB_OUTPUT
           echo "registry-url=${{ env.REGISTRY_URL }}" >> $GITHUB_OUTPUT
           echo "commit-sha=${{ github.sha }}" >> $GITHUB_OUTPUT
 
