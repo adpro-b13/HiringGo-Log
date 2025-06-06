@@ -24,9 +24,12 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-   
+    env:
+      REGISTRY_URL: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}
+      IMAGE_TAG: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
     outputs:
       image-tag: ${{ steps.set-outputs.outputs.image-tag }}
+      image-digest: ${{ steps.set-outputs.outputs.image-digest }}
       commit-sha: ${{ steps.set-outputs.outputs.commit-sha }}
       registry-url: ${{ steps.set-outputs.outputs.registry-url }}
     
@@ -87,41 +90,60 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # This step is now much simpler and more reliable
-      - name: Set deployment outputs
-        id: set-outputs
+      - name: Final State Inspection
+        id: set-outputs # We keep the id so the outputs mapping still works
         run: |
-          echo "image-tag=${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest" >> $GITHUB_OUTPUT
-          echo "registry-url=${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}" >> $GITHUB_OUTPUT
-          echo "commit-sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "--- Final State Inspection ---"
 
-  # validate-build:
-  #   needs: build-and-push
-  #   runs-on: ubuntu-latest
-    
-  #   steps:
-  #     - name: Validate build outputs
-  #       run: |
-  #         echo "=== Build Validation ==="
-  #         echo "Image Tag: ${{ needs.build-and-push.outputs.image-tag }}"
-  #         echo "Commit SHA: ${{ needs.build-and-push.outputs.commit-sha }}"
-  #         echo "Registry URL: ${{ needs.build-and-push.outputs.registry-url }}"
+          echo ""
+          echo "[1] Re-checking secrets..."
+          if [ -z "${{ secrets.DOCKER_HUB_USERNAME }}" ]; then
+            echo "  ERROR: DOCKER_HUB_USERNAME is NOW EMPTY at the end of the job."
+          else
+            echo "  ✅ DOCKER_HUB_USERNAME is still set."
+          fi
+
+          echo ""
+          echo "[2] Checking the value of the 'env' variable..."
+          echo "  env.IMAGE_TAG value is: '${{ env.IMAGE_TAG }}'"
+
+          echo ""
+          echo "[3] Checking the direct output from the 'docker/build-push-action' step..."
+          echo "  The image digest from the build step is: ${{ steps.build.outputs.digest }}"
+
+          echo ""
+          echo "[4] Attempting to set the output variable one last time..."
+          FINAL_TAG_VALUE="${{ env.IMAGE_TAG }}"
+          echo "  The value being written to GITHUB_OUTPUT for 'image-tag' is: '$FINAL_TAG_VALUE'"
+          echo "image-tag=$FINAL_TAG_VALUE" >> $GITHUB_OUTPUT
+
+          # As a fallback, let's also output the digest we got from the build step
+          echo "image-digest=${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
           
-  #         # Validate outputs are not empty
-  #         if [ -z "${{ needs.build-and-push.outputs.image-tag }}" ]; then
-  #           echo "ERROR: Image tag is empty"
-  #           exit 1
-  #         fi
+          echo "--- End of Final State Inspection ---"
+      # ---- END: REPLACEMENT STEP ----
+
+  validate-build:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate build outputs
+        run: |
+          echo "--- Build Validation ---"
+          echo "Received Image Tag: ${{ needs.build-and-push.outputs.image-tag }}"
+          echo "Received Image Digest: ${{ needs.build-and-push.outputs.image-digest }}"
+          echo "Received Commit SHA: ${{ needs.build-and-push.outputs.commit-sha }}"
+          echo "Received Registry URL: ${{ needs.build-and-push.outputs.registry-url }}"
           
-  #         if [ -z "${{ needs.build-and-push.outputs.commit-sha }}" ]; then
-  #           echo "ERROR: Commit SHA is empty"
-  #           exit 1
-  #         fi
+          if [ -z "${{ needs.build-and-push.outputs.image-tag }}" ]; then
+            echo "ERROR: Image tag is empty"
+            exit 1
+          fi
           
-  #         echo "Build validation passed!"
+          echo "Build validation passed!"
 
   deploy:
-    needs: [build-and-push]
+    needs: [build-and-push, validate-build]
     runs-on: ubuntu-latest
 
     steps:
