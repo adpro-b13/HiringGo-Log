@@ -36,6 +36,7 @@
 ## Key Guidelines
 - Always ask for clarifications if the requirements are not clear.
 - You can change the code structure if you think it will improve the code quality.
+- When applying change, check if the tests are still passing, and if not, please fix them.
 
 ## Dependency with External Microservices
 - to get a list of vacancies for courses that a student is accepted for, an external service will be called, but now use a dummy first

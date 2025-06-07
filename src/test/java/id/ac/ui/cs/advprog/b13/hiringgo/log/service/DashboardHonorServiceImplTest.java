@@ -39,15 +39,15 @@ class DashboardHonorServiceImplTest {
     @Test
     void getDashboardHonor_shouldReturnCorrectHonorForAcceptedLogs() {
         // Setup
-        String studentId = "student123";
-        String vacancyId = "vacancy123";
+        Long studentId = 123L; // Changed from String to Long
+        Long vacancyId = 456L; // Changed from String to Long
         int year = 2025;
         int month = 5;
 
         Log log1 = createLog(studentId, vacancyId, "2025-05-01", "09:00", "11:00", LogStatus.ACCEPTED);
         Log log2 = createLog(studentId, vacancyId, "2025-05-02", "13:00", "15:00", LogStatus.ACCEPTED);
         Log log3 = createLog(studentId, vacancyId, "2025-05-03", "14:00", "15:30", LogStatus.REJECTED); // Should be excluded
-        Log log4 = createLog(studentId, "vacancy456", "2025-05-04", "10:00", "12:00", LogStatus.ACCEPTED);
+        Log log4 = createLog(studentId, 789L, "2025-05-04", "10:00", "12:00", LogStatus.ACCEPTED); // Different vacancy
         Log log5 = createLog(studentId, vacancyId, "2025-06-01", "09:00", "11:00", LogStatus.ACCEPTED); // Different month
 
         when(userService.getCurrentStudentId()).thenReturn(studentId);
@@ -57,40 +57,40 @@ class DashboardHonorServiceImplTest {
 
         assertEquals(2, result.size());
 
-        DashboardHonor vacancy123Honor = result.stream()
-                .filter(honor -> vacancyId.equals(honor.getVacancyId()))
-                .findFirst()
-                .orElse(null);
-
-        assertNotNull(vacancy123Honor);
-        assertEquals(year, vacancy123Honor.getYear());
-        assertEquals(Month.of(month), vacancy123Honor.getMonth());
-        assertEquals(4, vacancy123Honor.getTotalHours());
-
-        // Expected honor: 4 hours * 27,500 = 110,000
-        assertEquals(0, new BigDecimal("110000.00").compareTo(vacancy123Honor.getTotalHonor()));
-
         DashboardHonor vacancy456Honor = result.stream()
-                .filter(honor -> "vacancy456".equals(honor.getVacancyId()))
+                .filter(honor -> vacancyId.equals(honor.getVacancyId())) // Now comparing Long with Long
                 .findFirst()
                 .orElse(null);
 
         assertNotNull(vacancy456Honor);
-        assertEquals(2, vacancy456Honor.getTotalHours());
+        assertEquals(year, vacancy456Honor.getYear());
+        assertEquals(Month.of(month), vacancy456Honor.getMonth());
+        assertEquals(4, vacancy456Honor.getTotalHours());
+
+        // Expected honor: 4 hours * 27,500 = 110,000
+        assertEquals(0, new BigDecimal("110000.00").compareTo(vacancy456Honor.getTotalHonor()));
+
+        DashboardHonor vacancy789Honor = result.stream()
+                .filter(honor -> Long.valueOf(789L).equals(honor.getVacancyId()))
+                .findFirst()
+                .orElse(null);
+
+        assertNotNull(vacancy789Honor);
+        assertEquals(2, vacancy789Honor.getTotalHours());
 
         // Expected honor: 2 hours * 27,500 = 55,000
-        assertEquals(0, new BigDecimal("55000.00").compareTo(vacancy456Honor.getTotalHonor()));
+        assertEquals(0, new BigDecimal("55000.00").compareTo(vacancy789Honor.getTotalHonor()));
     }
 
     @Test
     void getDashboardHonorSummary_shouldReturnCorrectSummary() {
         // Setup
-        String studentId = "student123";
+        Long studentId = 123L; // Changed from String to Long
         int year = 2025;
         int month = 5;
 
-        Log log1 = createLog(studentId, "vacancy123", "2025-05-01", "09:00", "11:00", LogStatus.ACCEPTED);
-        Log log2 = createLog(studentId, "vacancy456", "2025-05-02", "13:00", "15:00", LogStatus.ACCEPTED);
+        Log log1 = createLog(studentId, 456L, "2025-05-01", "09:00", "11:00", LogStatus.ACCEPTED);
+        Log log2 = createLog(studentId, 789L, "2025-05-02", "13:00", "15:00", LogStatus.ACCEPTED);
 
         when(userService.getCurrentStudentId()).thenReturn(studentId);
         when(logRepository.findAll()).thenReturn(Arrays.asList(log1, log2));
@@ -107,14 +107,14 @@ class DashboardHonorServiceImplTest {
         assertEquals(2, result.getDetails().size());
     }
 
-    private Log createLog(String studentId, String vacancyId, String date, String startTime, String endTime, LogStatus status) {
+    private Log createLog(Long studentId, Long vacancyId, String date, String startTime, String endTime, LogStatus status) { // Changed parameter types
         LocalDate logDate = LocalDate.parse(date);
         LocalDateTime start = LocalDateTime.parse(date + "T" + startTime + ":00");
         LocalDateTime end = LocalDateTime.parse(date + "T" + endTime + ":00");
 
         Log log = new Log();
-        log.setStudentId(studentId);
-        log.setVacancyId(vacancyId);
+        log.setStudentId(studentId); // Now setting Long
+        log.setVacancyId(vacancyId); // Now setting Long
         log.setTitle("Test Log");
         log.setDescription("Test Description");
         log.setCategory("Asistensi");

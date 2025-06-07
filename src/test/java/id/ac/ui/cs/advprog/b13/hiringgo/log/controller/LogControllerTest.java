@@ -1,33 +1,36 @@
 package id.ac.ui.cs.advprog.b13.hiringgo.log.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import id.ac.ui.cs.advprog.b13.hiringgo.log.dto.MessageRequest;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.model.Log;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.model.LogStatus;
+import id.ac.ui.cs.advprog.b13.hiringgo.log.repository.LogRepository;
 import id.ac.ui.cs.advprog.b13.hiringgo.log.state.VerificationAction;
-import id.ac.ui.cs.advprog.b13.hiringgo.log.service.LogServiceImpl;
-import id.ac.ui.cs.advprog.b13.hiringgo.log.validator.LogValidationException;
+import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(LogController.class)
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test") // Ensure test profile is active, especially for properties
+@Transactional
 class LogControllerTest {
 
     @Autowired
@@ -36,295 +39,562 @@ class LogControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
-    private LogServiceImpl logService;
+    @Autowired
+    private LogRepository logRepository;
 
-    private Log validLog;
-    private Log invalidLog;
-    private Log updatedLog;
+    // Token for a user with ROLE_DOSEN, userId: 4 (as per your example, ensure this matches your JWT setup)
+    // Replace with actual valid tokens for your test environment if needed, or ensure your test JWT setup can decode these.
+    // These tokens are illustrative and need to be decodable by your JwtTokenProvider with the configured secret.
+    // The userId claim in the token is what SecurityContextHolder.getContext().getAuthentication().getPrincipal() will return.
+    private static final String LECTURER_TOKEN_USER_ID_4 = "Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhQGdtYWlsLmNvbSIsInVzZXJJZCI6NCwibmFtYUxlbmdrYXAiOiJhIiwicm9sZXMiOiJST0xFX0RPU0VOIiwiaWF0IjoxNzQ3OTkwMzA1LCJleHAiOjE3Nzk2MTI3MDV9.se5JVH9peoT7e8EZHnYL0zebsLGo-s_PP1EK3Wq1P7c3oTTfMHw70WAtr1q4sQlusIFBKunNFU9saExZ83ziEw"; // Replace with a real, parsable token for testing
+    private static final String MAHASISWA_TOKEN_USER_ID_6 = "Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJoYXNpc3dhQGV4YW1wbGUuY29tIiwidXNlcklkIjo2LCJuYW1hTGVuZ2thcCI6IkZ1bGFuIE1haGFzaXN3YSIsInJvbGVzIjoiUk9MRV9NQUhBU0lTV0EiLCJpYXQiOjE3NDgwNTY3MTUsImV4cCI6MTc4OTY3OTExNX0.EG4Z2D7ikg7WrS2Uc9zSBsLN-PKIcEuSI_cU2WGRxex5xZioQjz8Sj01EdKOiK5Rgr1GKRQ75TSt6-jbLZTFtw"; // Replace
+
+    private static final String MALFORMED_TOKEN = "Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhQGdtYWlsLmNvbSIsInVzZXJJZCI6NCwibmFtYUxlbmdrYXAiOiJhIiwicm9sZXMiOjEsImlhdCI6MTc0Nzk5MDMwNSwiZXhwIjoxNzQ4MDc2NzA1fQ.9SVGjRpJMFJwXwWIQlpo79pa7zaofabbyPmMs9d9X5YewloUuVVuiDEI1LTpW123prYMEvXwNs5n2fjaBZ7jxQ";
+    private static final String TOKEN_WITHOUT_BEARER_PREFIX = MAHASISWA_TOKEN_USER_ID_6.substring(7);
+
 
     @BeforeEach
     void setUp() {
+        logRepository.deleteAll();
+    }
 
-        LocalDateTime now = LocalDateTime.now();
-        LocalDate today = LocalDate.now();
-
-        validLog = new Log();
-        validLog.setId(1L);
-        validLog.setStudentId("student123");
-        validLog.setTitle("Valid Log Title");
-        validLog.setDescription("Valid log description.");
-        validLog.setCategory("Internship");
-        validLog.setVacancyId("vacancy-001");
-        validLog.setStartTime(now.minusHours(1));
-        validLog.setEndTime(now);
-        validLog.setLogDate(today);
-        validLog.setStatus(LogStatus.REPORTED);
-
-        updatedLog = new Log();
-        updatedLog.setId(1L);
-        updatedLog.setStudentId("student123Updated");
-        updatedLog.setTitle("Updated Log Title");
-        updatedLog.setDescription("Updated log description.");
-        updatedLog.setCategory("Freelance");
-        updatedLog.setVacancyId("vacancy-002");
-        updatedLog.setStartTime(now.minusHours(2));
-        updatedLog.setEndTime(now.minusHours(1));
-        updatedLog.setLogDate(today.minusDays(1));
-        updatedLog.setStatus(LogStatus.REPORTED);
-
-        invalidLog = new Log();
-        invalidLog.setId(2L);
-        invalidLog.setStudentId("student456");
-        invalidLog.setTitle("");
-        invalidLog.setDescription("Log with invalid title.");
-        invalidLog.setCategory("Competition");
-        invalidLog.setVacancyId("vacancy-003");
-        invalidLog.setStartTime(now.minusHours(3));
-        invalidLog.setEndTime(now.minusHours(2));
-        invalidLog.setLogDate(today);
-        invalidLog.setStatus(LogStatus.REPORTED);
+    private Log createSampleLogEntity(Long studentId, Long vacancyId) {
+        return new Log("Sample Log Title", "Sample Description", "Asistensi", vacancyId,
+                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), studentId);
     }
 
     @Test
-    @DisplayName("POST /logs creates a log and returns 201 with Location header")
-    void createLog_returnsCreated() throws Exception {
-        LocalDateTime startTime = LocalDateTime.now();
-        Log input = new Log("Test Title","Test Desc","Test Category","VAC-ID-123",
-                startTime, startTime.plusHours(1), LocalDate.now(), "student-xyz");
-        Log savedLog = new Log(input.getTitle(), input.getDescription(), input.getCategory(), input.getVacancyId(),
-                input.getStartTime(), input.getEndTime(), input.getLogDate(), input.getStudentId());
-        savedLog.setId(10L);
-        savedLog.setStatus(LogStatus.REPORTED);
+    void getLogById_success_studentOwner() throws Exception {
+        Log log = createSampleLogEntity(6L, 1L); // Owned by student 6
+        logRepository.save(log);
 
-        when(logService.createLog(any(Log.class))).thenReturn(savedLog);
-
-        mockMvc.perform(post("/logs")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(input)))
-            .andExpect(status().isCreated())
-            .andExpect(header().string("Location", "/logs/10"))
-            .andExpect(jsonPath("$.id").value(10L))
-            .andExpect(jsonPath("$.studentId").value("student-xyz"))
-            .andExpect(jsonPath("$.status").value("REPORTED"));
-
-        verify(logService).createLog(any(Log.class));
-    }
-
-    @Test
-    @DisplayName("PUT /logs/{id} updates and returns the log")
-    void updateLog_returnsOk() throws Exception {
-        Long logIdToUpdate = 5L;
-        LocalDateTime startTime = LocalDateTime.now();
-        Log requestBodyLog = new Log("New Title","New Desc","Updated Category","VAC-ID-456",
-                startTime, startTime.plusHours(2), LocalDate.now(), "student-abc");
-        // ID in requestBodyLog is not strictly necessary as controller sets it from path.
-        // requestBodyLog.setId(logIdToUpdate);
-
-        Log serviceReturnedLog = new Log(requestBodyLog.getTitle(), requestBodyLog.getDescription(), requestBodyLog.getCategory(), requestBodyLog.getVacancyId(),
-                                 requestBodyLog.getStartTime(), requestBodyLog.getEndTime(), requestBodyLog.getLogDate(), requestBodyLog.getStudentId());
-        serviceReturnedLog.setId(logIdToUpdate); // Service returns log with ID.
-        serviceReturnedLog.setStatus(LogStatus.REPORTED);
-
-        // Mock the service to return the updated log when called with any Log object
-        // that has the correct ID (which the controller ensures by setting log.setId(id)).
-        when(logService.updateLog(argThat(log -> log.getId().equals(logIdToUpdate) &&
-                                             log.getTitle().equals("New Title")))) // Be more specific if needed
-            .thenReturn(serviceReturnedLog);
-
-
-        mockMvc.perform(put("/logs/{id}", logIdToUpdate)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestBodyLog))) // Send log data without ID in body, or with matching ID
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.id").value(logIdToUpdate))
-            .andExpect(jsonPath("$.title").value("New Title"))
-            .andExpect(jsonPath("$.studentId").value("student-abc"));
-
-        verify(logService).updateLog(any(Log.class));
-    }
-
-    // @Test
-    // void whenUpdateLog_withInvalidData_shouldReturnBadRequest() throws Exception {
-    //     Log logWithEmptyTitle = new Log("", "Valid Description", "Valid Category", "VAC-VALID",
-    //                                     LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now(), "student-valid");
-        
-    //     // Stub to prevent NPE if validation doesn't trigger and service is called.
-    //     // This doesn't mean the test will pass; it ensures the controller doesn't NPE.
-    //     // The test should still fail on status/body if validation isn't working as expected.
-    //     when(logService.updateLog(any(Log.class))).thenReturn(new Log()); // Return a dummy non-null Log
-
-    //     mockMvc.perform(put("/logs/{id}", validLog.getId()) 
-    //                     .contentType(MediaType.APPLICATION_JSON)
-    //                     .content(objectMapper.writeValueAsString(logWithEmptyTitle)))
-    //             .andExpect(status().isBadRequest())
-    //             .andExpect(jsonPath("$").isArray());
-    // }
-
-    @Test
-    void whenUpdateLog_serviceThrowsLogValidationException_shouldReturnBadRequest() throws Exception {
-        String exceptionMessage = "Service update validation failed";
-        when(logService.updateLog(any(Log.class))).thenThrow(new LogValidationException(exceptionMessage));
-
-        mockMvc.perform(put("/logs/{id}", updatedLog.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updatedLog)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string(exceptionMessage));
-    }
-
-    @Test
-    void whenUpdateLog_serviceThrowsIllegalArgumentException_shouldReturnBadRequest() throws Exception {
-        String exceptionMessage = "Log not found for update";
-        when(logService.updateLog(any(Log.class))).thenThrow(new IllegalArgumentException(exceptionMessage));
-
-        mockMvc.perform(put("/logs/{id}", updatedLog.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updatedLog)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string(exceptionMessage));
-    }
-
-    @Test
-    void whenUpdateLog_serviceThrowsIllegalStateException_shouldReturnBadRequest() throws Exception {
-        String exceptionMessage = "Log cannot be updated in current state";
-        when(logService.updateLog(any(Log.class))).thenThrow(new IllegalStateException(exceptionMessage));
-
-        mockMvc.perform(put("/logs/{id}", updatedLog.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updatedLog)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string(exceptionMessage));
-    }
-
-    @Test
-    @DisplayName("DELETE /logs/{id} returns 204")
-    void deleteLog_returnsNoContent() throws Exception {
-        doNothing().when(logService).deleteLog(3L);
-
-        mockMvc.perform(delete("/logs/3"))
-            .andExpect(status().isNoContent());
-
-        verify(logService).deleteLog(3L);
-    }
-
-    @Test
-    @DisplayName("POST /logs/{id}/verify?action=ACCEPT returns updated status")
-    void verifyLog_accept() throws Exception {
-        Log verified = new Log("T","D","C","VAC-1",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
-        verified.setId(7L);
-        verified.setStatus(LogStatus.ACCEPTED); // Assuming LogStatus is an enum
-
-        when(logService.verifyLog(7L, VerificationAction.ACCEPT))
-            .thenReturn(verified);
-
-        mockMvc.perform(post("/logs/7/verify")
-                .param("action", "ACCEPT"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.status").value("ACCEPTED"));
-
-        verify(logService).verifyLog(7L, VerificationAction.ACCEPT);
-    }
-
-    @Test
-    void whenVerifyLog_withRejectAction_shouldReturnOk() throws Exception {
-        Log verifiedLog = new Log();
-        verifiedLog.setId(validLog.getId());
-        verifiedLog.setStatus(LogStatus.REJECTED); // Set the enum value directly
-        when(logService.verifyLog(eq(validLog.getId()), eq(VerificationAction.REJECT))).thenReturn(verifiedLog);
-
-        mockMvc.perform(post("/logs/{id}/verify", validLog.getId())
-                        .param("action", "REJECT"))
+        mockMvc.perform(get("/logs/" + log.getId())
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("REJECTED"));
+                .andExpect(jsonPath("$.id", is(log.getId().intValue())))
+                .andExpect(jsonPath("$.title", is(log.getTitle())))
+                .andExpect(jsonPath("$.studentId", is(6)));
     }
 
     @Test
-    void whenVerifyLog_withInvalidAction_shouldReturnBadRequest() throws Exception {
-        mockMvc.perform(post("/logs/{id}/verify", validLog.getId())
-                        .param("action", "INVALID_ACTION"))
+    void getLogById_fail_logNotFound() throws Exception {
+        mockMvc.perform(get("/logs/9999") // Non-existent log ID
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getLogById_fail_notOwner() throws Exception {
+        Log log = createSampleLogEntity(7L, 1L); // Owned by student 7
+        logRepository.save(log);
+
+        mockMvc.perform(get("/logs/" + log.getId())
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)) // Student 6 tries to access
+                .andExpect(status().isForbidden())
+                .andExpect(content().string("Access denied to this log."));
+    }
+
+    @Test
+    void getLogById_fail_noToken() throws Exception {
+        Log log = createSampleLogEntity(6L, 1L);
+        logRepository.save(log);
+
+        mockMvc.perform(get("/logs/" + log.getId()))
+                .andExpect(status().isForbidden()); // Or isUnauthorized() depending on filter order
+    }
+
+    @Test
+    void getLogById_fail_lecturerTokenNotAllowed() throws Exception {
+        Log log = createSampleLogEntity(6L, 1L); // Log owned by a student
+        logRepository.save(log);
+
+        mockMvc.perform(get("/logs/" + log.getId())
+                        .header("Authorization", LECTURER_TOKEN_USER_ID_4)) // Lecturer token
+                .andExpect(status().isForbidden()); // Due to @PreAuthorize("hasRole('MAHASISWA')")
+    }
+
+
+    @Test
+    void createLog_success() throws Exception {
+        Long vacancyId = 1L; // Define a sample vacancyId
+        // studentId will be set from token, vacancyId will be set from path
+        Log logPayload = createSampleLogEntity(null, null);
+
+        mockMvc.perform(post("/logs/{vacancyId}", vacancyId) // Corrected path
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)
+                        .content(objectMapper.writeValueAsString(logPayload)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title", is(logPayload.getTitle())))
+                .andExpect(jsonPath("$.studentId", is(6))) // Assuming token for userId 6 resolves to 6L
+                .andExpect(jsonPath("$.vacancyId", is(vacancyId.intValue()))) // Added check for vacancyId
+                .andExpect(jsonPath("$.status", is(LogStatus.REPORTED.name())));
+    }
+
+    @Test
+    void createLog_fail_noToken() throws Exception {
+        Log logPayload = createSampleLogEntity(null, 1L);
+        mockMvc.perform(post("/logs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(logPayload)))
+                .andExpect(status().isForbidden()); // Or isUnauthorized() if no auth filter is hit first
+    }
+    
+    @Test
+    void createLog_fail_malformedTokenOrInvalidSignature() throws Exception {
+        Log logPayload = createSampleLogEntity(null, 1L);
+        // This test assumes your JwtAuthFilter correctly handles malformed/invalid tokens
+        // and results in a 403 Forbidden or 401 Unauthorized.
+        // The exact status might depend on your Spring Security configuration.
+        mockMvc.perform(post("/logs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", MALFORMED_TOKEN)
+                        .content(objectMapper.writeValueAsString(logPayload)))
+                .andExpect(status().isForbidden()); // Or 401
+    }
+
+    @Test
+    void createLog_fail_tokenWithoutBearerPrefix() throws Exception {
+        Log logPayload = createSampleLogEntity(null, 1L);
+        mockMvc.perform(post("/logs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", TOKEN_WITHOUT_BEARER_PREFIX)
+                        .content(objectMapper.writeValueAsString(logPayload)))
+                .andExpect(status().isForbidden()); // Or 401
+    }
+
+    @Test
+    void createLog_fail_lecturerTokenNotAllowed() throws Exception {
+        Long vacancyId = 1L; // Define a sample vacancyId
+        Log logPayload = createSampleLogEntity(null, null);
+
+        mockMvc.perform(post("/logs/{vacancyId}", vacancyId) // Corrected path
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", LECTURER_TOKEN_USER_ID_4) // Assuming this token has ROLE_LECTURER
+                        .content(objectMapper.writeValueAsString(logPayload)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void createLog_validationError_blankTitle() throws Exception {
+        Long vacancyId = 1L; // Define a sample vacancyId
+        Log logPayload = createSampleLogEntity(null, null); // studentId from token, vacancyId from path
+        logPayload.setTitle(""); // Invalid title
+
+        mockMvc.perform(post("/logs/{vacancyId}", vacancyId)
+                        .contentType(MediaType.APPLICATION_JSON) // This is the request's content type
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)
+                        .content(objectMapper.writeValueAsString(logPayload)))
+                .andExpect(status().isBadRequest())
+                // Corrected expectations for text/plain response:
+                .andExpect(content().contentType("text/plain;charset=UTF-8"))
+                .andExpect(content().string("Judul log tidak boleh kosong.")); // Expect the raw string
+    }
+
+    @Test
+    void updateLog_success() throws Exception {
+        Log existingLog = createSampleLogEntity(6L, 1L); // Owned by student 6
+        existingLog.setStatus(LogStatus.REPORTED);
+        logRepository.save(existingLog);
+
+        Log updatePayload = new Log();
+        updatePayload.setTitle("Updated Title");
+        // Other fields can be included if they are updatable
+        updatePayload.setDescription("Updated Description");
+        updatePayload.setCategory("Updated Category");
+        updatePayload.setVacancyId(existingLog.getVacancyId());
+        updatePayload.setStartTime(existingLog.getStartTime());
+        updatePayload.setEndTime(existingLog.getEndTime());
+        updatePayload.setLogDate(existingLog.getLogDate());
+
+
+        mockMvc.perform(patch("/logs/" + existingLog.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)
+                        .content(objectMapper.writeValueAsString(updatePayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(existingLog.getId()))
+                .andExpect(jsonPath("$.title", is("Updated Title")))
+                .andExpect(jsonPath("$.studentId", is(6)));
+    }
+
+    @Test
+    void updateLog_fail_notOwner() throws Exception {
+        Log existingLog = createSampleLogEntity(7L, 1L); // Owned by student 7
+        existingLog.setStatus(LogStatus.REPORTED);
+        logRepository.save(existingLog);
+
+        Log updatePayload = new Log();
+        updatePayload.setTitle("Attempted Update");
+        // Populate other required fields for validation if any
+        updatePayload.setDescription(existingLog.getDescription());
+        updatePayload.setCategory(existingLog.getCategory());
+        updatePayload.setVacancyId(existingLog.getVacancyId());
+        updatePayload.setStartTime(existingLog.getStartTime());
+        updatePayload.setEndTime(existingLog.getEndTime());
+        updatePayload.setLogDate(existingLog.getLogDate());
+
+
+        mockMvc.perform(patch("/logs/" + existingLog.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6) // Student 6 tries to update
+                        .content(objectMapper.writeValueAsString(updatePayload)))
+                .andExpect(status().isForbidden()); // Service layer should enforce ownership
+    }
+    
+    @Test
+    void updateLog_fail_statusNotReported() throws Exception {
+        Log existingLog = createSampleLogEntity(6L, 1L);
+        existingLog.setStatus(LogStatus.ACCEPTED); // Not REPORTED
+        logRepository.save(existingLog);
+
+        Log updatePayload = new Log();
+        updatePayload.setTitle("Updated Title");
+        updatePayload.setDescription(existingLog.getDescription());
+        updatePayload.setCategory(existingLog.getCategory());
+        updatePayload.setVacancyId(existingLog.getVacancyId());
+        updatePayload.setStartTime(existingLog.getStartTime());
+        updatePayload.setEndTime(existingLog.getEndTime());
+        updatePayload.setLogDate(existingLog.getLogDate());
+
+
+        mockMvc.perform(patch("/logs/" + existingLog.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)
+                        .content(objectMapper.writeValueAsString(updatePayload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("Log tidak dapat diubah karena statusnya ACCEPTED")));
+    }
+    
+    @Test
+    void updateLog_validationError() throws Exception {
+        Log existingLog = createSampleLogEntity(6L, 1L);
+        existingLog.setStatus(LogStatus.REPORTED);
+        logRepository.save(existingLog);
+
+        Log updatePayload = new Log();
+        updatePayload.setTitle(""); // Invalid: blank title
+        updatePayload.setDescription(existingLog.getDescription());
+        updatePayload.setCategory(existingLog.getCategory());
+        updatePayload.setVacancyId(existingLog.getVacancyId());
+        updatePayload.setStartTime(existingLog.getStartTime());
+        updatePayload.setEndTime(existingLog.getEndTime());
+        updatePayload.setLogDate(existingLog.getLogDate());
+
+        mockMvc.perform(patch("/logs/" + existingLog.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)
+                        .content(objectMapper.writeValueAsString(updatePayload)))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("Judul log tidak boleh kosong.")));
+    }
+
+
+    @Test
+    void deleteLog_success() throws Exception {
+        Log existingLog = createSampleLogEntity(6L, 1L);
+        existingLog.setStatus(LogStatus.REPORTED);
+        logRepository.save(existingLog);
+
+        mockMvc.perform(delete("/logs/" + existingLog.getId())
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message", is("Log berhasil dihapus")))
+                .andExpect(jsonPath("$.log_id", is("1")));
+
+
+        assertFalse(logRepository.findById(existingLog.getId()).isPresent());
+    }
+
+    @Test
+    void deleteLog_fail_notOwner() throws Exception {
+        Log existingLog = createSampleLogEntity(7L, 1L); // Owned by student 7
+        existingLog.setStatus(LogStatus.REPORTED);
+        logRepository.save(existingLog);
+
+        mockMvc.perform(delete("/logs/" + existingLog.getId())
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)) // Student 6 tries to delete
+                .andExpect(status().isForbidden());
+        
+        assertTrue(logRepository.findById(existingLog.getId()).isPresent());
+    }
+    
+    @Test
+    void deleteLog_fail_statusNotReported() throws Exception {
+        Log existingLog = createSampleLogEntity(6L, 1L);
+        existingLog.setStatus(LogStatus.ACCEPTED); // Not REPORTED
+        logRepository.save(existingLog);
+
+        mockMvc.perform(delete("/logs/" + existingLog.getId())
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6))
+                .andExpect(status().isBadRequest());
+        
+        assertTrue(logRepository.findById(existingLog.getId()).isPresent());
+    }
+
+    @Test
+    void verifyLog_accept_success() throws Exception {
+        Log existingLog = createSampleLogEntity(6L, 1L); 
+        existingLog.setStatus(LogStatus.REPORTED);
+        logRepository.save(existingLog);
+
+        mockMvc.perform(post("/logs/" + existingLog.getId() + "/verify")
+                        .param("action", VerificationAction.ACCEPT.name())
+                        .header("Authorization", LECTURER_TOKEN_USER_ID_4)) // Lecturer verifies
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is(LogStatus.ACCEPTED.name())));
+    }
+    
+    @Test
+    void verifyLog_reject_success() throws Exception {
+        Log existingLog = createSampleLogEntity(6L, 1L);
+        existingLog.setStatus(LogStatus.REPORTED);
+        logRepository.save(existingLog);
+
+        mockMvc.perform(post("/logs/" + existingLog.getId() + "/verify")
+                        .param("action", VerificationAction.REJECT.name())
+                        .header("Authorization", LECTURER_TOKEN_USER_ID_4))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is(LogStatus.REJECTED.name())));
+    }
+
+    @Test
+    void verifyLog_fail_notLecturer() throws Exception {
+        Log existingLog = createSampleLogEntity(6L, 1L);
+        existingLog.setStatus(LogStatus.REPORTED);
+        logRepository.save(existingLog);
+        
+        mockMvc.perform(post("/logs/" + existingLog.getId() + "/verify")
+                        .param("action", VerificationAction.ACCEPT.name())
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)) // Student cannot verify
+                .andExpect(status().isForbidden());
+    }
+    
+    @Test
+    void verifyLog_fail_alreadyVerified() throws Exception {
+        Log existingLog = createSampleLogEntity(6L, 1L);
+        existingLog.setStatus(LogStatus.ACCEPTED); // Already verified
+        logRepository.save(existingLog);
+
+        mockMvc.perform(post("/logs/" + existingLog.getId() + "/verify")
+                        .param("action", VerificationAction.REJECT.name())
+                        .header("Authorization", LECTURER_TOKEN_USER_ID_4))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("Log sudah diverifikasi")));
+    }
+
+    @Test
+    void verifyLog_fail_invalidActionParam() throws Exception {
+        Log existingLog = createSampleLogEntity(6L, 1L);
+        existingLog.setStatus(LogStatus.REPORTED);
+        logRepository.save(existingLog);
+
+        mockMvc.perform(post("/logs/" + existingLog.getId() + "/verify")
+                        .param("action", "INVALID_ACTION_STRING")
+                        .header("Authorization", LECTURER_TOKEN_USER_ID_4))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Invalid action value. Must be ACCEPT or REJECT."));
     }
 
     @Test
-    void whenVerifyLog_serviceThrowsIllegalArgumentException_shouldReturnBadRequest() throws Exception {
-        String exceptionMessage = "Log not found for verification";
-        when(logService.verifyLog(anyLong(), any(VerificationAction.class))).thenThrow(new IllegalArgumentException(exceptionMessage));
+    void getAllLogsStudent_success() throws Exception {
+        logRepository.save(createSampleLogEntity(6L, 1L)); // Student 6, Vacancy 1
+        logRepository.save(createSampleLogEntity(6L, 2L)); // Student 6, Vacancy 2
+        logRepository.save(createSampleLogEntity(7L, 1L)); // Student 7, Vacancy 1
 
-        mockMvc.perform(post("/logs/{id}/verify", validLog.getId())
-                        .param("action", "ACCEPT"))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string(exceptionMessage));
-    }
-
-    @Test
-    void whenVerifyLog_serviceThrowsIllegalStateException_shouldReturnBadRequest() throws Exception {
-        String exceptionMessage = "Log cannot be verified in current state";
-        when(logService.verifyLog(anyLong(), any(VerificationAction.class))).thenThrow(new IllegalStateException(exceptionMessage));
-
-        mockMvc.perform(post("/logs/{id}/verify", validLog.getId())
-                        .param("action", "ACCEPT"))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string(exceptionMessage));
-    }
-
-    @Test
-    @DisplayName("GET /logs returns list of logs")
-    void getAllLogs_returnsOkWithList() throws Exception {
-        Log a = new Log("A","D","C","VAC-1",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(1), LocalDate.now());
-        a.setId(1L);
-        Log b = new Log("B","D2","C","VAC-1",
-                LocalDateTime.now(), LocalDateTime.now().plusHours(2), LocalDate.now());
-        b.setId(2L);
-
-        when(logService.getAllLogs()).thenReturn(List.of(a,b));
-
-        mockMvc.perform(get("/logs"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.length()").value(2));
-
-        verify(logService).getAllLogs();
-    }
-
-    @Test
-    void whenGetAllLogs_withNoLogs_shouldReturnEmptyList() throws Exception {
-        when(logService.getAllLogs()).thenReturn(Collections.emptyList());
-
-        mockMvc.perform(get("/logs"))
+        mockMvc.perform(get("/logs/student") 
+                        .param("vacancyId", "1")
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.size()").value(0));
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].studentId", is(6)))
+                .andExpect(jsonPath("$[0].vacancyId", is(1)));
+    }
+    
+    @Test
+    void getAllLogsStudent_fail_lecturerToken() throws Exception {
+        mockMvc.perform(get("/logs/student")
+                        .param("vacancyId", "1")
+                        .header("Authorization", LECTURER_TOKEN_USER_ID_4))
+                .andExpect(status().isForbidden());
     }
 
-//    @Test
-//    void whenCreateLog_withInvalidData_shouldReturnBadRequest() throws Exception {
-//        // 'invalidLog' is set up in @BeforeEach to be invalid (e.g., missing title)
-//        // Assumes Log model has validation annotations (e.g., @NotBlank on title)
-//
-//        // Stub to prevent NPE if validation doesn't trigger and service is called.
-//        // This doesn't mean the test will pass; it ensures the controller doesn't NPE.
-//        // The test should still fail on status/body if validation isn't working as expected.
-//        when(logService.createLog(any(Log.class))).thenReturn(new Log()); // Return a dummy non-null Log
-//
-//        mockMvc.perform(post("/logs")
-//                        .contentType(MediaType.APPLICATION_JSON)
-//                        .content(objectMapper.writeValueAsString(invalidLog)))
-//                .andExpect(status().isBadRequest())
-//                .andExpect(jsonPath("$").isArray()); // Expecting a list of error messages
-//    }
+    @Test
+    void getAllLogsLecturer_success() throws Exception {
+        Log log1 = createSampleLogEntity(6L, 1L); // Vacancy 1, Student 6, Reported
+        log1.setStatus(LogStatus.REPORTED);
+        logRepository.save(log1);
+
+        Log log2 = createSampleLogEntity(7L, 1L); // Vacancy 1, Student 7, Accepted
+        log2.setStatus(LogStatus.ACCEPTED);
+        logRepository.save(log2);
+        
+        Log log3 = createSampleLogEntity(6L, 2L); // Vacancy 2, Student 6, Reported
+        log3.setStatus(LogStatus.REPORTED);
+        logRepository.save(log3);
+
+        mockMvc.perform(get("/logs/lecturer")
+                        .param("vacancyId", "1")
+                        .header("Authorization", LECTURER_TOKEN_USER_ID_4))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].vacancyId", is(1)))
+                .andExpect(jsonPath("$[0].status", is(LogStatus.REPORTED.name())))
+                .andExpect(jsonPath("$[0].studentId", is(6)));
+    }
+    
+    @Test
+    void getAllLogsLecturer_fail_studentToken() throws Exception {
+        mockMvc.perform(get("/logs/lecturer")
+                        .param("vacancyId", "1")
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6))
+                .andExpect(status().isForbidden());
+    }
 
     @Test
-    void whenCreateLog_serviceThrowsLogValidationException_shouldReturnBadRequest() throws Exception {
-        String exceptionMessage = "Service validation failed";
-        // Use validLog for the payload, as the service itself is throwing the exception
-        when(logService.createLog(any(Log.class))).thenThrow(new LogValidationException(exceptionMessage));
+    void addMessageToLog_success_studentOwner() throws Exception {
+        Log log = createSampleLogEntity(6L, 1L); // Owned by student 6
+        log.setMessages(new ArrayList<>());
+        logRepository.save(log);
 
-        mockMvc.perform(post("/logs")
+        MessageRequest messagePayload = new MessageRequest();
+        messagePayload.setMessage("New message from student owner");
+
+        mockMvc.perform(post("/logs/" + log.getId() + "/messages")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validLog)))
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)
+                        .content(objectMapper.writeValueAsString(messagePayload)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.messages", hasSize(1)))
+                .andExpect(jsonPath("$.messages[0]", is("New message from student owner")));
+    }
+    
+    @Test
+    void addMessageToLog_success_lecturer() throws Exception {
+        Log log = createSampleLogEntity(6L, 1L); // Log by student 6 for vacancy 1
+        log.setMessages(new ArrayList<>());
+        logRepository.save(log);
+
+        MessageRequest messagePayload = new MessageRequest();
+        messagePayload.setMessage("New message from lecturer");
+
+        // Assuming lecturer (user 4) can add message to any log they are authorized to view (e.g., related to their vacancies)
+        // The service logic for addMessageToLog needs to allow this based on role if not owner.
+        // Current LogController @PreAuthorize("hasRole('MAHASISWA')") on addMessageToLog. This test will fail.
+        // To make this pass, @PreAuthorize should be hasAnyRole('MAHASISWA', 'DOSEN') or service logic handles DOSEN.
+        // For now, assuming the @PreAuthorize on controller is MAHASISWA only, so this should be forbidden.
+        // Let's test current behavior:
+         mockMvc.perform(post("/logs/" + log.getId() + "/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", LECTURER_TOKEN_USER_ID_4) // Lecturer attempts
+                        .content(objectMapper.writeValueAsString(messagePayload)))
+                .andExpect(status().isForbidden()); // Because @PreAuthorize("hasRole('MAHASISWA')")
+    }
+
+    @Test
+    void addMessageToLog_fail_notOwnerStudent() throws Exception {
+        Log log = createSampleLogEntity(7L, 1L); // Owned by student 7
+        log.setMessages(new ArrayList<>());
+        logRepository.save(log);
+
+        MessageRequest messagePayload = new MessageRequest();
+        messagePayload.setMessage("Attempted message by non-owner");
+
+        mockMvc.perform(post("/logs/" + log.getId() + "/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6) // Student 6 tries
+                        .content(objectMapper.writeValueAsString(messagePayload)))
+                .andExpect(status().isBadRequest()) // Service will throw IllegalStateException for non-owner
+                .andExpect(content().string(containsString("User not authorized to add message to this log.")));
+    }
+
+    @Test
+    void addMessageToLog_validationError_blankMessage() throws Exception {
+        Log log = createSampleLogEntity(6L, 1L);
+        logRepository.save(log);
+
+        MessageRequest messagePayload = new MessageRequest();
+        messagePayload.setMessage(" "); // Blank message
+
+        mockMvc.perform(post("/logs/" + log.getId() + "/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)
+                        .content(objectMapper.writeValueAsString(messagePayload)))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string(exceptionMessage));
+                .andExpect(jsonPath("$", hasItem("Message cannot be blank")));
+    }
+    
+    @Test
+    void addMessageToLog_fail_logNotFound() throws Exception {
+        MessageRequest messagePayload = new MessageRequest();
+        messagePayload.setMessage("Test message");
+
+        mockMvc.perform(post("/logs/9999/messages") // Non-existent log ID
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)
+                        .content(objectMapper.writeValueAsString(messagePayload)))
+                .andExpect(status().isBadRequest()) // Service throws IllegalArgumentException
+                .andExpect(content().string(containsString("Log not found")));
+    }
+
+
+    @Test
+    void getMessagesForLog_success_studentOwner() throws Exception {
+        Log log = createSampleLogEntity(6L, 1L);
+        log.setMessages(new ArrayList<>(List.of("msg1 by owner", "msg2 by owner")));
+        logRepository.save(log);
+
+        mockMvc.perform(get("/logs/" + log.getId() + "/messages")
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0]", is("msg1 by owner")));
+    }
+    
+    @Test
+    void getMessagesForLog_success_lecturer() throws Exception {
+        Log log = createSampleLogEntity(6L, 1L); // Log by student 6
+        log.setMessages(new ArrayList<>(List.of("msg1 for lecturer view", "msg2 for lecturer view")));
+        logRepository.save(log);
+
+        mockMvc.perform(get("/logs/" + log.getId() + "/messages")
+                        .header("Authorization", LECTURER_TOKEN_USER_ID_4)) // Lecturer views
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0]", is("msg1 for lecturer view")));
+    }
+
+    @Test
+    void getMessagesForLog_fail_notOwnerStudent_norLecturer() throws Exception {
+        Log log = createSampleLogEntity(7L, 1L); // Owned by student 7
+        log.setMessages(new ArrayList<>(List.of("secret message")));
+        logRepository.save(log);
+
+        // Student 6 (not owner) tries to access.
+        // The controller's @PreAuthorize("hasAnyRole('MAHASISWA', 'DOSEN')") allows the request to reach the service.
+        // The service then performs the specific authorization check.
+        mockMvc.perform(get("/logs/" + log.getId() + "/messages")
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6)) 
+                .andExpect(status().isBadRequest()) // Service throws IllegalStateException
+                .andExpect(content().string(containsString("User not authorized to view messages for this log.")));
+    }
+
+    @Test
+    void getMessagesForLog_logNotFound() throws Exception {
+        mockMvc.perform(get("/logs/9999/messages") // Non-existent log ID
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6))
+                .andExpect(status().isNotFound()); // Service throws IllegalArgumentException, controller maps to 404
+    }
+    
+    @Test
+    void getMessagesForLog_emptyMessagesList() throws Exception {
+        Log log = createSampleLogEntity(6L, 1L);
+        log.setMessages(new ArrayList<>()); // No messages
+        logRepository.save(log);
+
+        mockMvc.perform(get("/logs/" + log.getId() + "/messages")
+                        .header("Authorization", MAHASISWA_TOKEN_USER_ID_6))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
     }
 }

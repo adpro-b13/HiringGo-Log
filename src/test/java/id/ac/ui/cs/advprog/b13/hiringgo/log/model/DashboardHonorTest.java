@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class DashboardHonorTest {
 
     private DashboardHonor dashboardHonor;
-    private final String vacancyId = "VAC-001";
+    private final Long vacancyId = 1L; // Changed from String "VAC-001" to Long
     private final String vacancyTitle = "Software Engineer";
     private final int year = 2025;
     private final Month month = Month.MAY;
